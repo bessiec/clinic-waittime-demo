@@ -1,0 +1,16 @@
+# Run outputs: every run is regenerated from its seed (python3 -m evals)
+runs/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# Secrets (API keys live in environment variables, never in files)
+.env
+.env.*
+
+# macOS / Dropbox
+.DS_Store
+.dropbox
+Icon?

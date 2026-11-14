@@ -1,0 +1,127 @@
+# Clinic Wait Time Demo — every tunable value lives here.
+# Values that come from a [bracket] in SPEC.md say so in a comment.
+# Nothing in clinic/ or evals/ hard-codes a threshold.
+
+[run]
+seed = 42                        # presenting seed, used by --quick
+seeds = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]   # full suite
+overflow_minutes = 240           # keep simulating this long after close so everyone is seen (stops early when settled)
+
+[clinic]
+open = "13:00"                   # afternoon half-day (Maria checks the page at 3:30)
+close = "17:00"
+providers = 2
+rooms = 3
+slot_minutes = 20
+scheduled_fill_rate = 0.8        # share of appointment slots that are booked
+mean_visit_minutes = 16
+visit_sd_minutes = 5
+run_long_visit_minutes = 26      # a visit past this length is "running long"
+late_grace_minutes = 10          # scheduled patient checked in after appt + this is "late"
+due_lookahead_minutes = 5        # scheduled patient is "due" this many minutes before appt
+
+[arrivals]
+base_walkin_per_hour = 2.0
+surge_walkin_per_hour = 10.0
+burst_time = "15:00"             # kim_goes_quiet only: injected burst of walk-ins so Kim's queue passes her limit on every seed (G2 must be exercised)
+burst_walkins = 12
+burst_spread_minutes = 5          # the burst arrives over this many minutes
+surge_start = "15:00"
+surge_end = "16:00"
+filler_noshow_rate = 0.08
+filler_late_rate = 0.10
+filler_late_minutes = [12, 30]
+filler_jitter_sd_minutes = 4
+walkin_ask_at_desk_rate = 0.5    # share of walk-ins who ask "how long?" at the desk
+walkin_patience_minutes = 20     # walk-in leaves once wait exceeds told top + this
+walkin_patience_declined_minutes = 45
+
+[estimator]
+recent_window_minutes = 60
+min_samples_today = 3            # below this, use the prior and label it (SPEC X2)
+prior_walkin_wait = [15, 35]     # synthetic "typical day" range used before today's data exists
+prior_visit_minutes = 16
+spread_low = 0.30                # low end = optimistic simulation minus this share
+spread_high = 0.30               # high end = pessimistic simulation plus this share
+optimistic_lookahead_minutes = 10   # low end counts only booked patients due this soon
+late_arrival_window_minutes = 30    # high end assumes a late booked patient still shows up this long after appt
+min_range_width = 10
+min_behind_width = 15            # scheduled lags reach ~13 min at p90 on normal days; a 0–10 floor misses them
+round_to = 5
+run_long_widen_minutes = 10
+run_long_active_minutes = 20
+low_sample_widen_minutes = 10
+booked_lookahead_minutes = 90
+no_show_grace_minutes = 10       # SPEC X4: booked slot stops counting as "ahead" after this
+passed_over_grace_minutes = 10   # SPEC X6: a waiting patient is excluded once someone who should come after them was roomed this long ago
+abandoned_after_minutes = 360    # backstop only: excluded after this long regardless (a long wait alone is not abandonment)
+
+[guardrails]
+stale_minutes = 15               # SPEC [15]
+min_confidence = 0.3
+max_text_chars = 300             # SPEC X8
+
+[frontdesk.dana]
+delay = [0, 0]                   # recorded on the next tick: within 1 min
+typo_rate = 0.02                 # SPEC [2%] wrong status
+
+[frontdesk.luis]
+batch_minutes = [10, 15]         # SPEC [10–15]
+walkin_discount = 0.7            # SPEC underestimates walk-ins by [~30%]
+assumed_minutes_per_patient = 15
+
+[frontdesk.kim]
+delay = [1, 3]
+surge_queue = 8                  # SPEC queue > [8]
+blackout_minutes = [20, 30]      # SPEC [20+] min
+blackouts_per_run = [1, 2]       # SPEC [1–2] times per run
+blackout_start_prob = 1.0        # SPEC: she stops updating when queue > [8]; no per-minute chance
+surge_skip_rate = 0.2
+
+[frontdesk.pat]
+delay = [0, 1]
+error_mean = 0.12                # SPEC 1–50%, most misses small
+error_min = 0.01
+error_max = 0.50
+assumed_minutes_per_patient = 15
+random_run_long_rate = 0.02
+missed_run_long_rate = 0.5
+approve_rate = 0.7
+
+[patients]
+grace_appt = "14:00"
+grace_check_before_minutes = 30
+chen_appt = "14:20"
+chen_early_minutes = 30
+ana_appt = "14:40"
+ana_late_minutes = 15
+jordan_appt = "15:00"
+maria_check_time = "15:30"
+maria_come_now_max_minutes = 45
+maria_recheck_minutes = 20
+maria_max_rechecks = 3
+maria_text_every_minutes = 10    # SPEC [10]
+maria_travel_minutes = 10
+rosa_arrival = "13:40"
+rosa_text_every_minutes = 15
+tom_arrival = "14:30"
+tom_text_after_minutes = 20
+
+[evals]
+E1_coverage = 0.80               # SPEC [80%]
+E1_behind_tolerance_minutes = 0  # scheduled: true lag must fall inside the shown "behind" range
+E2_median_width_minutes = 20     # SPEC [20]  (Milestone 2)
+E3_margin_minutes = 15           # SPEC [15]  (M2)
+E3_max_rate = 0.05               # SPEC [5%]  (M2)
+E4_decline_accuracy = 0.90       # SPEC [90%] (M2)
+E5_beat_rate = 0.70              # SPEC [70%] (M2)
+E6_caught = 0.90                 # SPEC [90%] (M5)
+E6_false_alarm = 0.10            # SPEC [10%] (M5)
+E7_grade = 6                     # SPEC [6]   (M5)
+E8_reason_match = 0.90           # SPEC [90%] (M5)
+E11_correlation = 0.5            # SPEC [0.5] (M5)
+survey_min_group = 10            # SPEC [10]  (M3)
+holdout_scenarios = 2            # SPEC [2]   (M2)
+X4_recover_refreshes = 1         # SPEC [1]   (M5)
+E2_short_wait_minutes = 25       # report-only split: E2 widths for best guesses at or under this vs above
+E4_queue_mismatch = 5            # PROPOSED, not in SPEC (was 3; loosened 2026-11-13): "should decline" when recorded and true queue differ by more than this many people
