@@ -10,7 +10,10 @@ const ui = { pid: URLQ.get("pid") || "maria", lang: URLQ.get("lang") === "es" ? 
 
 async function api(path, body) {
   const opt = body ? { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) } : {};
-  const r = await fetch(path, opt);
+  if (location.protocol === "file:") throw new Error("This page was opened as a file, so it can't reach the simulation. Run  python3 -m web  in a terminal and open http://127.0.0.1:8000");
+  let r;
+  try { r = await fetch(path, opt); }
+  catch { throw new Error("Can't reach the simulation server. Is  python3 -m web  still running? Then reload http://127.0.0.1:8000"); }
   const j = await r.json();
   if (!r.ok) throw new Error(j.error || r.statusText);
   return j;
@@ -327,7 +330,8 @@ async function poll(now) {
     renderFinance(s.finance, s.scorecard, s.control);
     renderDetail(s.control);
     renderTrend(s.control);
-  } catch (e) { $("err").textContent = e.message; }
+    $("err").textContent = $("err").dataset.sticky ? "" : $("err").textContent; delete $("err").dataset.sticky;
+  } catch (e) { $("err").textContent = e.message; $("err").dataset.sticky = "1"; }
   finally {
     polling = false;
     clearTimeout(timer);
