@@ -11,6 +11,9 @@ surge, a burst of walk-ins at 3 PM, or a provider who doesn't show up). Then it 
 one tick per minute through a fixed pipeline: world moves, front desk records,
 estimator runs, guardrails build the page, patients act, proposals get reviewed.
 There are seven scenarios; two of them are hold-outs that are never tuned against.
+The day can be played whole (evals) or one minute at a time (the web UI); both run
+the same tick. A "without the product" mode replays the same people and day with no
+page, texts, estimator or exception agent, for the finance pane's walkaway comparison.
 
 ## World (`clinic/world.py`)
 Ground truth: who really checked in, got roomed, finished, or walked away, with real
@@ -82,4 +85,37 @@ hold-outs included; a hold-out's scored eval is reported but never fails the run
 Each suite run is saved under `runs/suites/` with a fingerprint of the config and
 code, and compared with the previous run so a pass that turns into a fail is printed
 first. `python3 -m evals --quick` is the single-seed, two-scenario check from
-Milestone 1.
+Milestone 1. Every failure line carries the minute and patient it came from, so the
+observer pane can link to it. E10 recounts every finance number from the raw tables
+with separate code and requires an exact match.
+
+## Survey (`clinic/survey.py`)
+After each visit, or when a walk-in gives up, the patient answers three 1–5 questions:
+was the estimate accurate, how satisfied with the wait, would you use it again. In
+this milestone the answers are a formula of what the page showed at check-in versus
+the real wait, plus random noise, stored without a patient id. Because it is a
+formula, the finance pane's "satisfaction tracks false reassurance" link is built in.
+
+## Data-quality flags (`clinic/flags.py`)
+Plain-code checks over what the front desk recorded: roomed before check-in, checked
+out without being roomed, checked in twice, in a room unusually long, passed over in
+the queue, or no update for a while. They only flag; nothing changes. The LLM
+data-quality agent adds to these in Milestone 5.
+
+## Finance (`evals/finance.py`)
+Counts per run (patients seen, room-minutes, walkaways with and without the product,
+no-shows, desk questions, button presses, approvals, texts, survey answers) that add
+up across seeds, and the rates shown on the finance pane. Money and staff time come
+from per-unit figures in config and are labeled modeled. Survey averages for any
+group under 10 answers are hidden.
+
+## Web UI (`web/`)
+`python3 -m web` serves the four panes at http://127.0.0.1:8000 using only the Python
+standard library and plain JavaScript. A background ticker steps the run at 1x (one
+simulated minute per second), 10x or 60x; each pane is computed from the run's SQLite
+file at a chosen minute, so you can scrub back, click a scorecard failure to jump to
+that patient and minute, or open a failing seed from the last suite. The patient
+phone shows the guardrail text word for word; the staff console shows only what the
+desk recorded, and with "approvals by me" your decisions and "will run long" presses
+are logged as human actions that Replay feeds back for an identical run.
+`python3 -m web --selftest` checks the panes through the API.

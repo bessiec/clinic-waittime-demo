@@ -23,19 +23,20 @@ from pathlib import Path
 from clinic import config, director
 from clinic.config import ROOT, DEFAULT_PATH
 from clinic.scenarios import SCENARIOS
-from . import gates, scored
+from . import finance, gates, scored
 from .common import Result, open_run
 
 GATES = ["G1", "G2", "G3", "G4", "G5"]
 PLAN = {
-    "normal_day":           GATES + ["E1", "E2", "E4", "E9"],
-    "kim_goes_quiet":       ["G1", "G2!", "G3", "G4", "G5", "E4", "E9"],
-    "walkin_surge":         GATES + ["E1", "E2i", "E3", "E4"],
-    "luis_day":             GATES + ["E4", "E5"],
-    "pat_day":              GATES + ["E4", "E5"],
-    "understaffed_opening": GATES + ["E1", "E3", "E4"],
-    "luis_surge":           GATES + ["E1", "E3", "E4", "E5"],
+    "normal_day":           GATES + ["E1", "E2", "E4", "E9", "E10"],
+    "kim_goes_quiet":       ["G1", "G2!", "G3", "G4", "G5", "E4", "E9", "E10"],
+    "walkin_surge":         GATES + ["E1", "E2i", "E3", "E4", "E10"],
+    "luis_day":             GATES + ["E4", "E5", "E10"],
+    "pat_day":              GATES + ["E4", "E5", "E10"],
+    "understaffed_opening": GATES + ["E1", "E3", "E4", "E10"],
+    "luis_surge":           GATES + ["E1", "E3", "E4", "E5", "E10"],
 }
+EXACT = ("G1", "G2", "G3", "G4", "G5", "E9", "E10")   # pass/fail per seed, pooled as "n/N seeds pass"
 GRADERS = {
     "G1": gates.g1_urgent_reply,
     "G2": gates.g2_no_stale_numbers,
@@ -50,26 +51,38 @@ GRADERS = {
     "E4": scored.e4_declines,
     "E5": scored.e5_beats_staff,
     "E9": scored.e9_chen_clock,
+    "E10": scored.e10_finance_reconciles,
 }
 SUITES = ROOT / "runs" / "suites"
 
 
-def grade(db_path, scenario, cfg, seed=None):
+def grade(db_path, scenario, cfg, seed=None, baseline_path=None):
     st = open_run(db_path)
+    base = open_run(baseline_path) if baseline_path else None
     out = []
     for k in PLAN[scenario]:
-        r = GRADERS[k](st, cfg)
+        r = GRADERS[k](st, cfg, baseline=base) if k == "E10" else GRADERS[k](st, cfg)
         r.seed = seed
         out.append(r)
     st.conn.close()
+    if base:
+        base.conn.close()
     return out
 
 
 def _job(args):
+    """One scenario x seed: the run, its no-product baseline (for the finance
+    pane's walkaway comparison), grades and finance counts."""
     scenario, seed, cfg_path, out_dir = args
     cfg = config.load(cfg_path)
     path = director.run(scenario, seed, cfg, db_path=str(Path(out_dir) / f"{scenario}_s{seed}.sqlite"))
-    return scenario, seed, [asdict(r) for r in grade(path, scenario, cfg, seed)]
+    bpath = director.run(scenario, seed, cfg, db_path=str(Path(out_dir) / f"{scenario}_s{seed}_baseline.sqlite"), product=False)
+    results = [asdict(r) for r in grade(path, scenario, cfg, seed, bpath)]
+    st, bst = open_run(path), open_run(bpath)
+    fin = finance.counts(st, cfg, bst)
+    st.conn.close()
+    bst.conn.close()
+    return scenario, seed, results, fin
 
 
 # --- pooling -------------------------------------------------------------
@@ -91,8 +104,9 @@ def pool(check_id, rs, cfg):
         spread = {"min": v[0], "median": statistics.median(v), "max": v[-1]}
     row = {"id": check_id, "scenario": first.scenario, "threshold": first.threshold,
            "failing_seeds": failing, "spread": spread, "worst_seed": None, "detail": "",
-           "evidence": [f"seed {r.seed}: {e}" for r in rs for e in r.evidence][:12]}
-    if check_id in ("G1", "G2", "G3", "G4", "G5", "E9"):
+           "evidence": [f"seed {r.seed}: {e}" for r in rs for e in r.evidence][:12],
+           "refs": [(ref or {}) | {"seed": r.seed} for r in rs for ref in r.refs][:12]}
+    if check_id in EXACT:
         n_ok = sum(1 for r in rs if r.passed)
         row |= {"score": f"{n_ok}/{len(rs)} seeds pass", "value": n_ok / len(rs), "passed": n_ok == len(rs)}
         ne = [r.seed for r in rs if r.score == "not exercised"]
@@ -168,6 +182,7 @@ def prune_old(current):
                 keep |= {f"{c['scenario']}_s{s}.sqlite" for s in c["failing_seeds"]}
             elif c["passed"] is False and c["worst_seed"] is not None:
                 keep.add(f"{c['scenario']}_s{c['worst_seed']}.sqlite")
+        keep |= {k.replace(".sqlite", "_baseline.sqlite") for k in keep}
         for f in d.glob("*.sqlite"):
             if f.name not in keep:
                 f.unlink()
@@ -204,7 +219,7 @@ def print_rows(rows, title):
     for c in rows:
         print(f"{c['id']:<{w[0]}} {c['scenario']:<{w[1]}} {c['score'][:w[2]]:<{w[2]}} {c['threshold'][:w[3]]:<{w[3]}} {mark(c['passed'])}")
         pad = " " * (w[0] + w[1] + 2)
-        if c["spread"] and not c["id"].startswith("G") and c["id"] != "E9":
+        if c["spread"] and c["id"] not in EXACT:
             sp = c["spread"]
             fmtv = (lambda x: f"{x:.0%}") if c["id"] in ("E1", "E3", "E4", "E5") else (lambda x: f"{x:g}")
             print(f"{pad}per seed: min {fmtv(sp['min'])}, median {fmtv(sp['median'])}, max {fmtv(sp['max'])}; worst seed {c['worst_seed']}")
@@ -225,11 +240,12 @@ def suite(args, cfg):
     out.mkdir(parents=True, exist_ok=True)
     t0 = time.time()
     jobs = [(sc, s, args.config, str(out)) for sc in scenarios for s in seeds]
-    per = {}
+    per, fin = {}, {}
     with ProcessPoolExecutor(max_workers=os.cpu_count()) as ex:
-        for sc, s, rs in ex.map(_job, jobs):
+        for sc, s, rs, f in ex.map(_job, jobs):
             for r in rs:
                 per.setdefault((r["id"], sc), []).append(Result(**r))
+            fin[sc] = finance.add(fin.get(sc, {}), f)
     checks = []
     for sc in scenarios:
         for k in PLAN[sc]:
@@ -239,7 +255,8 @@ def suite(args, cfg):
             checks.append(row)
     result = {"suite_id": suite_id, "created": dt.datetime.now().isoformat(timespec="seconds"),
               "seeds": seeds, "scenarios": scenarios, "fingerprint": fingerprint(args.config),
-              "elapsed_s": round(time.time() - t0, 1), "checks": checks}
+              "elapsed_s": round(time.time() - t0, 1), "checks": checks,
+              "finance": {sc: {"counts": fin[sc], "derived": finance.derive(fin[sc], cfg, runs=len(seeds))} for sc in scenarios}}
     (out / "results.json").write_text(json.dumps(result, indent=2, ensure_ascii=False))
 
     print(f"Clinic wait-time demo — simulation, synthetic data.")

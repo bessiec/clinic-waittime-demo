@@ -26,6 +26,9 @@ CREATE TABLE queue_changes(id INTEGER PRIMARY KEY, t INTEGER, pid TEXT, approval
                            from_pos INTEGER, to_pos INTEGER, detail TEXT);
 CREATE TABLE notes(id INTEGER PRIMARY KEY, t INTEGER, pid TEXT, text TEXT);
 CREATE TABLE run_costs(run_id TEXT, model_calls INTEGER, model_usd REAL, sms_count INTEGER, sms_usd REAL);
+CREATE TABLE survey(id INTEGER PRIMARY KEY, t INTEGER, kind TEXT, told_status TEXT, told_low INTEGER, told_high INTEGER,
+                    waited INTEGER, completed INTEGER, accurate INTEGER, satisfied INTEGER, reuse INTEGER, noisy INTEGER);
+CREATE TABLE human_actions(id INTEGER PRIMARY KEY, t INTEGER, kind TEXT, data TEXT);
 """
 
 # Status-button events written by the front desk. Anything else in `events`
@@ -57,7 +60,9 @@ class RecordedState:
 class Store:
     def __init__(self, path: str):
         self.path = path
-        self.conn = sqlite3.connect(path)
+        # check_same_thread=False: the web server reads from request threads while
+        # one ticker thread writes; every access there is serialized by a lock.
+        self.conn = sqlite3.connect(path, check_same_thread=False)
         self.conn.row_factory = sqlite3.Row
         if not self.conn.execute("SELECT name FROM sqlite_master WHERE name='runs'").fetchone():
             self.conn.executescript(SCHEMA)
@@ -112,6 +117,15 @@ class Store:
 
     def add_costs(self, run_id, model_calls=0, model_usd=0.0, sms_count=0, sms_usd=0.0):
         self._ins("INSERT INTO run_costs VALUES(?,?,?,?,?)", (run_id, model_calls, model_usd, sms_count, sms_usd))
+
+    def add_survey(self, t, kind, told_status, told_low, told_high, waited, completed, accurate, satisfied, reuse, noisy):
+        """Anonymous: no patient id is stored, only what they were told and how long they waited."""
+        return self._ins("INSERT INTO survey(t,kind,told_status,told_low,told_high,waited,completed,accurate,satisfied,reuse,noisy) "
+                         "VALUES(?,?,?,?,?,?,?,?,?,?,?)",
+                         (t, kind, told_status, told_low, told_high, waited, int(completed), accurate, satisfied, reuse, int(noisy)))
+
+    def add_human_action(self, t, kind, data):
+        return self._ins("INSERT INTO human_actions(t,kind,data) VALUES(?,?,?)", (t, kind, json.dumps(data)))
 
     def commit(self):
         self.conn.commit()

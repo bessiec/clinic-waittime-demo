@@ -125,3 +125,35 @@ holdout_scenarios = 2            # SPEC [2]   (M2)
 X4_recover_refreshes = 1         # SPEC [1]   (M5)
 E2_short_wait_minutes = 25       # report-only split: E2 widths for best guesses at or under this vs above
 E4_queue_mismatch = 5            # PROPOSED, not in SPEC (was 3; loosened 2026-11-13): "should decline" when recorded and true queue differ by more than this many people
+
+[survey]
+# Scripted survey (Milestone 3). Answers are 1–5. A formula, so any link the
+# finance pane shows between satisfaction and false reassurance is built in.
+noise_rate = 0.15                # SPEC "a set rate of noise": chance each answer is replaced by a random 1–5
+accuracy_step_minutes = 10       # "accurate" drops one point per this many minutes past the top of the range
+declined_accuracy = 3            # page declined at check-in: neutral answer
+satisfaction_wait_step_minutes = 30   # "satisfied" drops one point per this many minutes waited
+satisfaction_overrun_step_minutes = 10  # ...and one more per this many minutes past what they were told
+walkaway_penalty = 1             # left before being seen
+
+[finance]
+# Modeled, not measured. Every money figure on the finance pane says "modeled".
+sms_usd_per_message = 0.0079     # modeled per-message cost, inbound and outbound both billed
+model_usd_per_call = 0.0         # no LLM calls until Milestone 4
+staff_minutes_per_press = 0.25   # one status button press
+staff_minutes_per_question = 1.0 # answering "how long?" at the desk
+staff_minutes_per_approval = 0.5 # reviewing one proposal in the staff console
+
+[flags]
+# Rule-based data-quality flags in code (Milestone 3); the data-quality agent adds to these in Milestone 5.
+no_update_minutes = 60           # SPEC "no update for an hour"
+in_room_minutes = 45             # roomed this long with no checkout recorded
+
+[ui]
+host = "127.0.0.1"
+port = 8000
+# Real seconds per simulated minute. 1x = one simulated minute per second
+# (a 4-hour half-day plays in about 4 minutes). Decided 2026-11-17.
+speed_seconds = { "1x" = 1.0, "10x" = 0.1, "60x" = 0.016667 }
+default_speed = "1x"
+score_refresh_seconds = 1.0      # live scorecard regrades at most this often

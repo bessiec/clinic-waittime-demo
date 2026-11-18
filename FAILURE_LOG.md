@@ -115,3 +115,43 @@ waiting-list function, so the two can't disagree about who is waiting.
 still fails at 53%: Kim's skipped presses leave the recorded queue more than 5 people
 off while the data still looks fresh. The guardrail's freshness check only looks at the
 newest entry; that gap is still open.
+
+## 2026-11-17 — Milestone 3 build (four panes)
+
+**Refactor check · splitting the run loop changed nothing (passed).** Before any UI
+work, all 140 saved runs from the last Milestone 2 suite were replayed with the new
+start/step/finish loop and compared table by table: identical. The suite's regression
+view agrees: no score moved.
+
+**UI self-test "every failure links to its timeline" · E2 had no links (fixed).** A
+failing E2 (median range too wide) listed no patients, so there was nothing to click.
+E2 now lists each range wider than the threshold with its patient and minute.
+
+**UI self-test · saved suites from before this milestone crashed the server
+(fixed).** They lack the new survey table. The server now refuses them with a message
+to run `python3 -m evals`; new suites open fine.
+
+**Browser check · stale patient selection after opening a saved run (fixed).** The
+patient log kept the previous run's selection, and patient ids like "w02" mean a
+different person in another run. Opening a run now clears the selection.
+
+**By eye (screenshot) · page wider than a phone screen at 375 px (fixed).** A grid
+column wouldn't shrink below its content. The phone frame itself was already 375 px
+wide on desktop.
+
+**By eye · two different patients both named "Owen" (fixed).** Busy Kim days use more
+than the 40 filler names. Reused names now get a letter ("Owen B"); the random draws
+are unchanged, so no score moved.
+
+**Open · walkaways "with vs without the product" is partly built in.** A walk-in who
+saw a range waits until 20 min past its top; one with no information leaves after a
+fixed 45 min. So the product's lower walkaway rate (e.g. walkin_surge 2% vs 35%)
+mostly reflects that patience rule, not evidence. Milestone 4's LLM patients should
+decide this themselves.
+
+**Open · survey relationship is built in.** Satisfaction is a formula that penalizes
+waiting past the range, so "satisfaction tracks false reassurance" on the finance pane
+is true by construction until Milestone 4.
+
+**Unchanged · tuning evals still failing:** kim_goes_quiet E4 53%, luis_day E5 23%,
+pat_day E5 49%. Hold-outs unchanged.

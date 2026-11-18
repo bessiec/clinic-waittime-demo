@@ -7,6 +7,9 @@ from ..clock import parse
 
 
 def understood(view, lang):
+    if view.status == "none":   # baseline run: no product, nothing to read
+        return ("No hay página de espera; voy a ir y ya." if lang == "es"
+                else "There's no wait-time page, so I'll just go in.")
     if view.status == "range":
         if lang == "es":
             return (f"Entendí que la espera es de {view.wait_low} a {view.wait_high} min y que "
@@ -75,7 +78,10 @@ class Maria(PatientActor):
         p = self.p
         if self.planned is None and t == self.next_check:
             self.rechecks += 1
-            if view.status == "range" and view.wait_high <= self.pc["maria_come_now_max_minutes"]:
+            if view.status == "none":   # baseline: nothing to check, she just comes in
+                self.planned = t + self.pc["maria_travel_minutes"]
+                acts.append(("note", understood(view, "en")))
+            elif view.status == "range" and view.wait_high <= self.pc["maria_come_now_max_minutes"]:
                 self.planned = t + self.pc["maria_travel_minutes"]
                 acts.append(("note", understood(view, "en") + " That's fine, I'm coming now."))
             elif self.rechecks >= self.pc["maria_max_rechecks"]:

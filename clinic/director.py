@@ -1,6 +1,8 @@
 """Scenario director: simulated clock, appointment book, staffing, injected
 events, fixed seed. Drives one tick per minute through the fixed pipeline:
-world -> front desk -> store -> estimator -> guardrails -> patients."""
+world -> front desk -> store -> estimator -> guardrails -> patients.
+run() plays a whole day; start()/step()/finish() let the web UI play it a
+minute at a time. Both paths run the identical tick."""
 import random
 from pathlib import Path
 
@@ -10,7 +12,8 @@ from .actors.patients import PERSONAS as PATIENTS
 from .clock import parse
 from .config import ROOT
 from .estimator import estimate
-from .guardrails import guard, make_blocklist
+from .guardrails import PublicView, guard, make_blocklist
+from .survey import Survey
 from .scenarios import SCENARIOS
 from .store import Store
 from .world import Patient, World
@@ -25,7 +28,17 @@ FILLER_NAMES = [
 
 
 class Director:
-    def __init__(self, scenario: str, seed: int, cfg: dict, db_path: str | None = None):
+    def __init__(self, scenario: str, seed: int, cfg: dict, db_path: str | None = None,
+                 product: bool = True, approver: str = "persona", human_script: list | None = None):
+        """product=False is the "without the product" baseline for the finance
+        pane: same people, same day, but no public page, no texts, no estimator
+        and no exception agent. approver="human" leaves proposals for the person
+        running the demo; human_script replays a logged set of human actions."""
+        if approver not in ("persona", "human"):
+            raise ValueError(approver)
+        self.product = product
+        self.approver = approver
+        self.human_script = list(human_script or [])
         if scenario not in SCENARIOS:
             raise ValueError(f"unknown scenario {scenario}")
         self.scenario = scenario
@@ -35,7 +48,7 @@ class Director:
         self.rng = random.Random(f"{seed}:director")
         self.open_t = parse(cfg["clinic"]["open"])
         self.close_t = parse(cfg["clinic"]["close"])
-        self.run_id = f"{scenario}_s{seed}"
+        self.run_id = f"{scenario}_s{seed}" + ("" if product else "_baseline")
         if db_path is None:
             db_path = str(ROOT / "runs" / f"{self.run_id}.sqlite")
         Path(db_path).parent.mkdir(parents=True, exist_ok=True)
@@ -56,11 +69,18 @@ class Director:
         pool = list(FILLER_NAMES)
         self.rng.shuffle(pool)
 
+        rounds = [0]
+
         def next_name():
+            # A busy day can use more names than the list holds. Refill with
+            # the same shuffle as before, but tag reused names ("Owen B") so
+            # two different people never share a name on the staff screens.
             if not pool:
+                rounds[0] += 1
                 pool.extend(FILLER_NAMES)
                 self.rng.shuffle(pool)
-            return pool.pop()
+            name = pool.pop()
+            return name if rounds[0] == 0 else f"{name} {chr(ord('A') + rounds[0])}"
         patients: dict[str, Patient] = {}
 
         def add(pid, name, kind, appt, lang, persona, planned, asks=False):
@@ -132,23 +152,62 @@ class Director:
         return self
 
     # --- run ---------------------------------------------------------------
-    def run(self):
-        cfg, st, world, desk = self.cfg, self.store, self.world, self.desk
-        end_t = self.close_t + cfg["run"]["overflow_minutes"]
-        pending_proposals = []
+    # The loop is split into start / step / finish so the web UI can drive it
+    # one minute at a time. run() calls the same three, so evals are unchanged.
+    def start(self):
+        cfg, st = self.cfg, self.store
+        self.end_t = self.close_t + cfg["run"]["overflow_minutes"]
+        self.pending_proposals = []
+        self.done = False
+        self.t = self.open_t          # the next minute to simulate
+        self.human_queue = []         # live human actions waiting for the next tick
+        self.survey = Survey(cfg, self.seed)
         # The front desk records who actually showed up, not who was scheduled (SPEC X9).
-        st.add_event(self.open_t, "staffing", None, desk.name, {"providers": self.providers_on_duty})
-        t = self.open_t
-        while t < end_t:
-            # 1. world moves: checkouts, roomings, walkaways discovered
-            truth = world.advance(t)
-            for e in truth:
-                st.add_truth(t, e["type"], e["pid"], e.get("data"))
-            # 2. front desk records (late, batched, skipped or wrong per persona)
-            desk.observe(t, truth, world)
-            desk.observe_run_long(t, world)
-            for pr in desk.flush(t, world):
-                st.add_event(t, pr.type, pr.pid, desk.name, pr.data)
+        st.add_event(self.open_t, "staffing", None, self.desk.name, {"providers": self.providers_on_duty})
+        return self
+
+    def human(self, kind, **data):
+        """Queue a live action from the person running the demo. It is applied
+        at the start of the next tick and logged, so the run can be replayed by
+        passing the same log back as human_script."""
+        if kind not in ("decide", "run_long"):
+            raise ValueError(kind)
+        if kind == "decide" and not (data.get("reason") or "").strip():
+            raise ValueError("an approval needs a one-line reason")
+        self.human_queue.append({"t": self.t, "kind": kind, "data": data})
+
+    def _human_actions(self, t):
+        acts = [a for a in self.human_script if a["t"] == t] + [a for a in self.human_queue if a["t"] <= t]
+        self.human_queue = [a for a in self.human_queue if a["t"] > t]
+        for a in acts:
+            self.store.add_human_action(t, a["kind"], a["data"])
+        return acts
+
+    def _no_product_view(self, t):
+        return PublicView(t=t, status="none", text={"en": "", "es": ""}, reason="no product")
+
+    def step(self):
+        """Simulate one minute. Returns False once the run has finished."""
+        if self.done:
+            return False
+        cfg, st, world, desk, t = self.cfg, self.store, self.world, self.desk, self.t
+        humans = self._human_actions(t)
+        human_decisions = {a["data"]["proposal_id"]: a["data"] for a in humans if a["kind"] == "decide"}
+        # 1. world moves: checkouts, roomings, walkaways discovered
+        truth = world.advance(t)
+        for e in truth:
+            st.add_truth(t, e["type"], e["pid"], e.get("data"))
+            if e["type"] == "checkout":
+                self._survey(t, world.patients[e["pid"]], completed=True)
+        # 2. front desk records (late, batched, skipped or wrong per persona)
+        desk.observe(t, truth, world)
+        desk.observe_run_long(t, world)
+        for pr in desk.flush(t, world):
+            st.add_event(t, pr.type, pr.pid, desk.name, pr.data)
+        for a in humans:
+            if a["kind"] == "run_long":   # one-tap "will run long" from the staff console
+                st.add_event(t, "run_long", a["data"]["pid"], "human", {"source": "staff console"})
+        if self.product:
             # 3. estimator reads only the store
             est = estimate(st, self.book, t, cfg)
             st.add_estimate(est)
@@ -156,41 +215,53 @@ class Director:
             state = st.recorded_state(t)
             view = guard(est, t, state.last_event_t, cfg, self.blocklist, open_now=True)
             st.add_view(view)
-            # 5. patients act on the public view and their own texts
-            for actor in self.actors:
-                p = actor.p
-                for act in actor.step(t, view):
-                    if act[0] == "arrive":
-                        e = world.checkin(t, p.pid)
-                        st.add_truth(t, e["type"], p.pid, e["data"])
-                        p.told_status, p.told_high = view.status, view.wait_high
-                        desk.observe(t, [e], world)
-                        if p.asks_desk:
-                            lo, hi, pt, text = desk.verbal(t, p.pid, view, world)
-                            st.add_verbal(t, p.pid, desk.name, lo, hi, pt, text)
-                    elif act[0] == "text":
-                        st.add_message(t, p.pid, "in", p.lang, "patient", act[1])
-                        kind, lang, reply = texting.respond(t, p.pid, act[1], p.lang, view, st, cfg, self.blocklist)
-                        note = actor.on_reply(t, kind, reply, lang)
-                        if note:
-                            st.add_note(t, p.pid, note)
-                    elif act[0] == "note":
-                        st.add_note(t, p.pid, act[1])
-                    elif act[0] == "leave":
-                        e = world.leave(t, p.pid)
-                        st.add_truth(t, e["type"], p.pid)
-            # 6. proposals need a logged approval before the queue moves
-            already = st.proposed_pids() | {pr["pid"] for pr in pending_proposals}
+        else:
+            state = st.recorded_state(t)
+            view = self._no_product_view(t)
+        # 5. patients act on the public view and their own texts
+        for actor in self.actors:
+            p = actor.p
+            for act in actor.step(t, view):
+                if act[0] == "arrive":
+                    e = world.checkin(t, p.pid)
+                    st.add_truth(t, e["type"], p.pid, e["data"])
+                    p.told_status, p.told_high = view.status, view.wait_high
+                    desk.observe(t, [e], world)
+                    if p.asks_desk:
+                        lo, hi, pt, text = desk.verbal(t, p.pid, view, world)
+                        st.add_verbal(t, p.pid, desk.name, lo, hi, pt, text)
+                elif act[0] == "text":
+                    if not self.product:
+                        continue          # no texting service without the product
+                    st.add_message(t, p.pid, "in", p.lang, "patient", act[1])
+                    kind, lang, reply = texting.respond(t, p.pid, act[1], p.lang, view, st, cfg, self.blocklist)
+                    note = actor.on_reply(t, kind, reply, lang)
+                    if note:
+                        st.add_note(t, p.pid, note)
+                elif act[0] == "note":
+                    st.add_note(t, p.pid, act[1])
+                elif act[0] == "leave":
+                    e = world.leave(t, p.pid)
+                    st.add_truth(t, e["type"], p.pid)
+                    self._survey(t, p, completed=False)
+        # 6. proposals need a logged approval before the queue moves
+        if self.product:
+            pending = self.pending_proposals
+            already = st.proposed_pids() | {pr["pid"] for pr in pending}
             for pr in proposals.scan(t, state, self.book, cfg, already):
                 pr["id"] = st.add_proposal(t, pr["pid"], pr["action"], str(pr["detail"]), pr["reason"], "exception_stub")
-                pending_proposals.append(pr)
+                pending.append(pr)
             still = []
-            for pr in pending_proposals:
-                decision = desk.review(t, pr)
+            for pr in pending:
+                if self.approver == "human":
+                    h = human_decisions.get(pr["id"])
+                    decision, actor_name = ((h["decision"], h["reason"].strip()) if h else None), "human"
+                else:
+                    decision, actor_name = desk.review(t, pr), desk.name
                 if decision is None:
                     still.append(pr)
                     continue
-                aid = st.add_approval(t, pr["id"], desk.name, decision[0], decision[1])
+                aid = st.add_approval(t, pr["id"], actor_name, decision[0], decision[1])
                 if decision[0] == "approved" and pr["action"] == "reslot":
                     before = world.order(t)
                     from_pos = before.index(pr["pid"]) if pr["pid"] in before else None
@@ -198,21 +269,40 @@ class Director:
                     after = world.order(t)
                     to_pos = after.index(pr["pid"]) if pr["pid"] in after else None
                     st.add_queue_change(t, pr["pid"], aid, from_pos, to_pos, {"effective_appt": t})
-            pending_proposals = still
-            # 7. truth queue snapshot for G3
-            st.add_truth(t, "queue_snapshot", None, world.order(t))
-            st.commit()
-            t += 1
-            if t >= self.close_t and world.all_settled() and not self._future_arrivals(t):
-                break
-        st.add_costs(self.run_id, model_calls=0, model_usd=0.0, sms_count=0, sms_usd=0.0)
-        st.finish_run(self.run_id, t)
+            self.pending_proposals = still
+        # 7. truth queue snapshot for G3
+        st.add_truth(t, "queue_snapshot", None, world.order(t))
+        st.commit()
+        self.t = t = t + 1
+        if t >= self.end_t or (t >= self.close_t and world.all_settled() and not self._future_arrivals(t)):
+            self.finish()
+        return not self.done
+
+    def finish(self):
+        cfg, st = self.cfg, self.store
+        fc = cfg["finance"]
+        sms = st.one("SELECT COUNT(*) n FROM messages")["n"]
+        st.add_costs(self.run_id, model_calls=0, model_usd=0.0, sms_count=sms,
+                     sms_usd=round(sms * fc["sms_usd_per_message"], 6))
+        st.finish_run(self.run_id, self.t)
+        self.done = True
+
+    def run(self):
+        self.start()
+        while self.step():
+            pass
         return self.db_path
+
+    def _survey(self, t, p, completed):
+        if not self.product:
+            return
+        view = self.store.one("SELECT * FROM views WHERE t=?", (p.checked_in_at,))
+        self.survey.answer(t, p, view, self.store, completed, t)
 
     def _future_arrivals(self, t):
         return any(a.planned is not None and a.planned >= t and a.p.checked_in_at is None for a in self.actors) \
             or any(a.p.persona == "maria" and a.planned is None for a in self.actors)
 
 
-def run(scenario, seed, cfg, db_path=None):
-    return Director(scenario, seed, cfg, db_path).build().run()
+def run(scenario, seed, cfg, db_path=None, **kw):
+    return Director(scenario, seed, cfg, db_path, **kw).build().run()

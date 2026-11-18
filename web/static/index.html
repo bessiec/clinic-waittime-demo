@@ -1,0 +1,107 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Clinic Wait Time Demo</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="bar">
+  <div class="brand">
+    <strong>Clinic Wait Time Demo</strong>
+    <span class="sim-label">Simulation, synthetic data</span>
+  </div>
+  <div class="controls" role="toolbar" aria-label="Run controls">
+    <label>Scenario <select id="scenario"></select></label>
+    <label>Seed <input id="seed" type="number" min="0" step="1"></label>
+    <label>Approvals by <select id="approver">
+      <option value="persona">desk persona</option>
+      <option value="human">me (staff console)</option>
+    </select></label>
+    <button id="start" class="primary">Start run</button>
+    <span class="sep"></span>
+    <button id="play" disabled>Play</button>
+    <button id="step" disabled title="Advance one simulated minute">Step</button>
+    <button id="toend" disabled title="Play the rest of the day instantly">To end</button>
+    <span class="seg" id="speeds" role="group" aria-label="Speed"></span>
+    <span class="clock" id="clock">no run</span>
+  </div>
+  <div class="scrub">
+    <input id="scrub" type="range" min="0" max="0" value="0" disabled aria-label="Look back to a minute">
+    <button id="live" disabled>Live</button>
+    <button id="replay" disabled title="Same scenario, seed and your logged staff actions: should replay identically">Replay</button>
+    <span id="source" class="muted"></span>
+    <span id="err" class="err" role="alert"></span>
+  </div>
+</header>
+
+<main class="grid">
+  <section class="pane phone-pane" aria-label="Patient phone">
+    <h2>Patient phone <span class="sim-label">Simulation, synthetic data</span></h2>
+    <label class="viewas">Viewing as <select id="pid"></select></label>
+    <div class="phone" id="phone">
+      <div class="phone-sim" id="phone-sim">Simulation, synthetic data</div>
+      <div class="phone-top">
+        <span id="phone-title">Clinic wait times</span>
+        <span class="seg small" role="group" aria-label="Language">
+          <button data-lang="en" class="on">EN</button><button data-lang="es">ES</button>
+        </span>
+      </div>
+      <div id="page" class="page"><p class="muted">Start a run to see the public page.</p></div>
+      <h3 id="thread-title">Your texts</h3>
+      <div id="thread" class="thread"></div>
+    </div>
+    <p class="note">The page shows the guardrail text word for word, one sentence per line. What you see is what the gates grade.</p>
+  </section>
+
+  <section class="pane staff-pane" aria-label="Staff console">
+    <h2>Staff console <span class="sim-label">Simulation, synthetic data</span></h2>
+    <div id="estimate" class="card"></div>
+    <h3>Approval inbox</h3>
+    <div id="inbox"></div>
+    <div id="decided"></div>
+    <h3>Data-quality flags</h3>
+    <div id="flags"></div>
+    <div class="cols2">
+      <div><h3>Scheduled queue</h3><div id="queue"></div></div>
+      <div><h3>Walk-in queue</h3><div id="walkins"></div></div>
+    </div>
+    <h3>In a room</h3>
+    <div id="inroom"></div>
+    <p class="note">Shows only what the front desk recorded, not what really happened.</p>
+  </section>
+
+  <section class="pane observer-pane" aria-label="Observer dashboard">
+    <h2>Observer dashboard <span class="sim-label">Simulation, synthetic data</span></h2>
+    <div class="tabs" role="tablist">
+      <button role="tab" data-tab="live" class="on">This run</button>
+      <button role="tab" data-tab="suite">Last suite</button>
+    </div>
+    <div id="tab-live">
+      <h3>Scorecard <span id="score-note" class="muted"></span></h3>
+      <div id="scorecard"></div>
+      <h3>Timeline: told vs actual</h3>
+      <div class="legend" id="legend"></div>
+      <div id="timeline" class="timeline"></div>
+      <div id="tip" class="tip" hidden></div>
+      <div class="cols2 obs-bottom">
+        <div><h3 id="detail-title">Patient log</h3><div id="detail" class="log"><p class="muted">Click a row in the timeline or a failure in the scorecard.</p></div></div>
+        <div><h3>Decisions and reasons</h3><div id="decisions" class="log"></div></div>
+      </div>
+    </div>
+    <div id="tab-suite" hidden>
+      <div id="suite"></div>
+    </div>
+  </section>
+
+  <section class="pane finance-pane" aria-label="Finance dashboard">
+    <h2>Finance dashboard <span class="sim-label">Simulation, synthetic data</span> <span class="modeled">Money and staff time are modeled</span></h2>
+    <div id="finance"></div>
+    <h3>Trend across saved suites <span class="muted" id="trend-note"></span></h3>
+    <div id="trend"></div>
+  </section>
+</main>
+<script src="app.js"></script>
+</body>
+</html>
