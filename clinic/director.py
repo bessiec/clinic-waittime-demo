@@ -9,6 +9,9 @@ from pathlib import Path
 from . import proposals, texting
 from .actors.frontdesk import PERSONAS as DESK
 from .actors.patients import PERSONAS as PATIENTS
+from .actors.llm import make_caller
+from .actors.llm_frontdesk import LLMDesk
+from .actors.llm_patients import LLMPatient
 from .clock import parse
 from .config import ROOT
 from .estimator import estimate
@@ -29,13 +32,22 @@ FILLER_NAMES = [
 
 class Director:
     def __init__(self, scenario: str, seed: int, cfg: dict, db_path: str | None = None,
-                 product: bool = True, approver: str = "persona", human_script: list | None = None):
+                 product: bool = True, approver: str = "persona", human_script: list | None = None,
+                 actors: str | None = None, replay_from: str | None = None):
         """product=False is the "without the product" baseline for the finance
         pane: same people, same day, but no public page, no texts, no estimator
         and no exception agent. approver="human" leaves proposals for the person
         running the demo; human_script replays a logged set of human actions."""
         if approver not in ("persona", "human"):
             raise ValueError(approver)
+        # Who plays the people: scripted rules, LLM persona agents, or a replay of a
+        # recorded LLM run (Milestone 4). Product logic is plain code in every mode.
+        self.actors_mode = actors or cfg["actors"]["mode"]
+        if self.actors_mode not in ("scripted", "llm", "replay"):
+            raise ValueError(self.actors_mode)
+        if self.actors_mode == "replay" and not replay_from:
+            raise ValueError("replay needs replay_from: a recorded LLM run")
+        self.replay_from = replay_from
         self.product = product
         self.approver = approver
         self.human_script = list(human_script or [])
@@ -145,6 +157,13 @@ class Director:
         self.blocklist = make_blocklist([p.name for p in patients.values()] + ["Mr. Chen"])
         self.desk = DESK[self.sc["frontdesk"]](cfg, self.seed)
         self.actors = [PATIENTS[p.persona](p, cfg, self.seed) for p in patients.values()]
+        self.caller = make_caller(self.actors_mode, cfg, self.store, self.replay_from)
+        if self.caller is not None:
+            # Actor agents wrap the scripted personas, which stay as the fallback.
+            self.desk = LLMDesk(self.desk, cfg, self.caller, {p.pid: p.name for p in patients.values()})
+            self.actors = [LLMPatient(a, cfg, self.caller, self.store) if a.p.persona != "filler" else a
+                           for a in self.actors]
+        self.agent_by_pid = {a.p.pid: a for a in self.actors if isinstance(a, LLMPatient)}
         self.store.add_run(self.run_id, self.scenario, self.seed, self.desk.name, self.open_t, self.close_t)
         for p in patients.values():
             self.store.add_patient(p.pid, p.name, p.kind, p.appt, p.lang, p.persona)
@@ -225,7 +244,7 @@ class Director:
                 if act[0] == "arrive":
                     e = world.checkin(t, p.pid)
                     st.add_truth(t, e["type"], p.pid, e["data"])
-                    p.told_status, p.told_high = view.status, view.wait_high
+                    p.told_status, p.told_low, p.told_high = view.status, view.wait_low, view.wait_high
                     desk.observe(t, [e], world)
                     if p.asks_desk:
                         lo, hi, pt, text = desk.verbal(t, p.pid, view, world)
@@ -282,7 +301,10 @@ class Director:
         cfg, st = self.cfg, self.store
         fc = cfg["finance"]
         sms = st.one("SELECT COUNT(*) n FROM messages")["n"]
-        st.add_costs(self.run_id, model_calls=0, model_usd=0.0, sms_count=sms,
+        calls = st.one("SELECT COUNT(*) n FROM llm_calls WHERE source != 'skipped'")["n"]
+        # Agent calls go through the owner's Claude subscription (or a free replay):
+        # billed $0. What they would cost at API prices is in llm_calls.modeled_usd.
+        st.add_costs(self.run_id, model_calls=calls, model_usd=0.0, sms_count=sms,
                      sms_usd=round(sms * fc["sms_usd_per_message"], 6))
         st.finish_run(self.run_id, self.t)
         self.done = True
@@ -297,7 +319,7 @@ class Director:
         if not self.product:
             return
         view = self.store.one("SELECT * FROM views WHERE t=?", (p.checked_in_at,))
-        self.survey.answer(t, p, view, self.store, completed, t)
+        self.survey.answer(t, p, view, self.store, completed, t, agent=self.agent_by_pid.get(p.pid))
 
     def _future_arrivals(self, t):
         return any(a.planned is not None and a.planned >= t and a.p.checked_in_at is None for a in self.actors) \

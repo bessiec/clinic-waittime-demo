@@ -13,7 +13,7 @@ COUNT_KEYS = [
     "room_minutes", "room_capacity_minutes", "walkins", "walkaways",
     "baseline_walkins", "baseline_walkaways",
     "desk_questions", "presses", "approvals", "messages",
-    "model_calls", "model_usd", "sms_usd",
+    "model_calls", "model_usd", "model_usd_modeled", "sms_usd",
     "cov_num", "cov_den", "fr_num", "fr_den", "views_open", "declined_open",
     "survey_n", "survey_accurate", "survey_satisfied", "survey_reuse",
     "inside_n", "inside_satisfied", "over_n", "over_satisfied", "declined_n", "declined_satisfied",
@@ -83,7 +83,11 @@ def counts(st, cfg, baseline=None):
         if g:
             c[f"{g}_n"] += 1
             c[f"{g}_satisfied"] += s["satisfied"]
+    if st.has_table("llm_calls"):
+        # What the persona-agent calls would cost at API list prices. Billed: $0 (subscription).
+        c["model_usd_modeled"] = st.one("SELECT COALESCE(SUM(modeled_usd),0) v FROM llm_calls")["v"]
     c["model_usd"] = round(c["model_usd"], 6)
+    c["model_usd_modeled"] = round(c["model_usd_modeled"], 6)
     c["sms_usd"] = round(c["sms_usd"], 6)
     return c
 
@@ -132,6 +136,8 @@ def derive(c, cfg, runs=1):
         "false_reassurance": _r(c["fr_num"], c["fr_den"]),
         "decline_rate": _r(c["declined_open"], c["views_open"]),
         "cost_per_day_modeled": round(cost / runs, 4),
+        "model_calls_per_run": round(c["model_calls"] / runs, 2),
+        "model_api_equiv_per_run_modeled": round(c["model_usd_modeled"] / runs, 4),
         "cost_per_patient_modeled": round(cost / c["checked_in"], 4) if c["checked_in"] else None,
         "survey_n": c["survey_n"],
         "survey_accurate": mean(c["survey_accurate"], c["survey_n"]),

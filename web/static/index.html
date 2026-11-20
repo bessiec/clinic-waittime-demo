@@ -20,6 +20,7 @@
       <option value="human">me (staff console)</option>
     </select></label>
     <button id="start" class="primary">Start run</button>
+    <button id="demo" title="Play the recorded day where AI agents play Kim and the patients. Replayed from the recording: no model calls, no cost.">Watch AI demo day</button>
     <span class="sep"></span>
     <button id="play" disabled>Play</button>
     <button id="step" disabled title="Advance one simulated minute">Step</button>
@@ -77,6 +78,7 @@
     <div class="tabs" role="tablist">
       <button role="tab" data-tab="live" class="on">This run</button>
       <button role="tab" data-tab="suite">Last suite</button>
+      <button role="tab" data-tab="agents">Agents</button>
     </div>
     <div id="tab-live">
       <h3>Scorecard <span id="score-note" class="muted"></span></h3>
@@ -92,6 +94,9 @@
     </div>
     <div id="tab-suite" hidden>
       <div id="suite"></div>
+    </div>
+    <div id="tab-agents" hidden>
+      <div id="agents"></div>
     </div>
   </section>
 

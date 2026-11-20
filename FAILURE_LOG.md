@@ -155,3 +155,34 @@ is true by construction until Milestone 4.
 
 **Unchanged · tuning evals still failing:** kim_goes_quiet E4 53%, luis_day E5 23%,
 pat_day E5 49%. Hold-outs unchanged.
+
+## 2026-11-19 — Milestone 4 build (AI test actors)
+
+**F1 · desk-guess checks graded the day, not the persona (fixed before any agent ran).** The first
+Luis and Pat checks compared their "how long?" guesses with the patient's actual wait. On scripted
+runs, which follow the habits exactly, Luis failed (only 40% of guesses below the actual wait) and Pat
+failed (100% of guesses more than 25% off), because the actual wait mostly reflects the simulated day.
+Fix: compare each guess with a fair headcount guess at that minute (people waiting x 15 min / providers),
+so the check measures the habit. Scripted Luis guesses at 67% of fair; SPEC says about 30% low.
+
+**F1 · Tom's timing window (fixed).** The check wanted his chest text 10–35 min after check-in; on
+pat_day seed 1 he was called back after 6 minutes and texted then, which is in character. Window is now 0–35.
+
+**F1 pat_day · 11/20 seeds (caught by the suite, fixed).** Pat answers only 3–6 "how long?" questions
+a day, so "5–60% of guesses are big misses" swung on one guess: 0 of 4 failed the floor, 2 of 3 failed the
+cap. A share needs a sample. Fix: fewer than 10 guesses reports Pat's guessing as untested rather than
+pass or fail (config `min_guesses`). All 140 scripted runs now pass F1.
+
+**Calls skipped after the budget counted as model calls (fixed).** The 6-call smoke test logged 266 model
+calls in run_costs because every skipped attempt was a row. Skipped attempts are now marked and excluded,
+in the director and in E10 alike.
+
+**Open · F1 kim on the AI demo run (kim_goes_quiet seed 42, 175 agent calls).** The AI Kim drifted two
+ways. (1) Too punctual on calm stretches: median entry 0 min after the event (SPEC: late; scripted Kim
+2 min); 46 of 71 entries were same-minute. (2) Too far into the blackout: once the room passed 8 at
+15:03 she stopped entering anything for 170 minutes, to the end of the day, and forgot about half of
+what happened (71 entries for 143 events). Her prompt says 20–30 minutes; her notes repeat "computer can
+wait" every 2 minutes, although each prompt told her how long it had been. F1 caught (1). It did not
+catch (2): the check counts quiet stretches of 20+ minutes (SPEC [20+]) with no upper limit, so a 170-minute
+stretch counted as one acceptable blackout. Gates all passed (G2 exercised: 154 stale views, 0 leaks).
+Proposed: add an upper limit (45 min) to the check, sharpen Kim's prompt on both habits, re-record.

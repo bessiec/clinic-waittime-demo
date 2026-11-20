@@ -29,6 +29,9 @@ CREATE TABLE run_costs(run_id TEXT, model_calls INTEGER, model_usd REAL, sms_cou
 CREATE TABLE survey(id INTEGER PRIMARY KEY, t INTEGER, kind TEXT, told_status TEXT, told_low INTEGER, told_high INTEGER,
                     waited INTEGER, completed INTEGER, accurate INTEGER, satisfied INTEGER, reuse INTEGER, noisy INTEGER);
 CREATE TABLE human_actions(id INTEGER PRIMARY KEY, t INTEGER, kind TEXT, data TEXT);
+CREATE TABLE llm_calls(seq INTEGER PRIMARY KEY, t INTEGER, actor TEXT, role TEXT, prompt_file TEXT,
+                       prompt_sha TEXT, prompt TEXT, response TEXT, ok INTEGER, error TEXT, model TEXT,
+                       ms INTEGER, input_tokens INTEGER, output_tokens INTEGER, modeled_usd REAL, source TEXT);
 """
 
 # Status-button events written by the front desk. Anything else in `events`
@@ -123,6 +126,17 @@ class Store:
         return self._ins("INSERT INTO survey(t,kind,told_status,told_low,told_high,waited,completed,accurate,satisfied,reuse,noisy) "
                          "VALUES(?,?,?,?,?,?,?,?,?,?,?)",
                          (t, kind, told_status, told_low, told_high, waited, int(completed), accurate, satisfied, reuse, int(noisy)))
+
+    def add_llm_call(self, row: dict):
+        """One persona-agent call (Milestone 4). The full prompt and reply are kept so a
+        run can be replayed exactly and inspected in the Agents view."""
+        cols = ("seq", "t", "actor", "role", "prompt_file", "prompt_sha", "prompt", "response", "ok", "error",
+                "model", "ms", "input_tokens", "output_tokens", "modeled_usd", "source")
+        self._ins(f"INSERT INTO llm_calls({','.join(cols)}) VALUES({','.join('?' * len(cols))})",
+                  tuple(row.get(c) for c in cols))
+
+    def has_table(self, name):
+        return self.conn.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name=?", (name,)).fetchone() is not None
 
     def add_human_action(self, t, kind, data):
         return self._ins("INSERT INTO human_actions(t,kind,data) VALUES(?,?,?)", (t, kind, json.dumps(data)))

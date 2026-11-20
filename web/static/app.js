@@ -39,6 +39,7 @@ $("play").onclick = () => control({ action: ui.last?.control?.running ? "pause" 
 $("step").onclick = () => { ui.at = null; control({ action: "step" }); };
 $("toend").onclick = () => { ui.at = null; control({ action: "to_end" }); };
 $("replay").onclick = () => { ui.at = null; control({ action: "replay" }); };
+$("demo").onclick = () => { ui.at = null; ui.selected = null; ui.focusT = null; $("approver").value = "persona"; control({ action: "start_demo" }); };
 $("live").onclick = () => { ui.at = null; ui.focusT = null; poll(true); };
 $("scrub").oninput = (e) => { ui.at = +e.target.value; poll(true); };
 $("pid").onchange = (e) => { ui.pid = e.target.value; poll(true); };
@@ -50,7 +51,9 @@ function showTab(tab) {
   document.querySelectorAll("[data-tab]").forEach((b) => b.classList.toggle("on", b.dataset.tab === tab));
   $("tab-live").hidden = tab !== "live";
   $("tab-suite").hidden = tab !== "suite";
+  $("tab-agents").hidden = tab !== "agents";
   if (tab === "suite") loadSuites();
+  if (tab === "agents") loadAgents(true);
 }
 
 function renderControl(s) {
@@ -76,7 +79,7 @@ function renderControl(s) {
     }
     $("source").textContent = c.mode === "review"
       ? `Saved run from suite ${src.suite}: ${src.scenario}, seed ${src.seed} (read only)`
-      : `${src.scenario}, seed ${src.seed}, approvals by ${src.approver === "human" ? "you" : "desk persona"}${src.replay ? `, replaying ${src.replayed_actions} logged staff action(s)` : ""}`;
+      : `${src.demo ? "AI demo day (recorded agents, replayed free): " : ""}${src.scenario}, seed ${src.seed}, approvals by ${src.approver === "human" ? "you" : "desk persona"}${src.replay ? `, replaying ${src.replayed_actions} logged staff action(s)` : ""}`;
   }
 }
 
@@ -340,3 +343,40 @@ async function poll(now) {
 }
 renderLegend();
 poll(true);
+
+// ---------------------------------------------------------------- agents tab
+// Every test-actor persona: its prompt, what it did in this run, and whether it
+// behaved the way its habits say (persona fidelity).
+ui.agentOpen = null;
+let agentsTimer = null;
+async function loadAgents(force) {
+  if (ui.tab !== "agents") return;
+  let a;
+  try { a = await api("/api/agents"); } catch (e) { $("agents").innerHTML = `<p class="err">${esc(e.message)}</p>`; return; }
+  const pill = (p) => {
+    if (!p.in_run) return `<span class="pill">not in this run</span>`;
+    const f = p.fidelity;
+    if (!f) return `<span class="pill">no data yet</span>`;
+    return `<span class="pill ${f.status === "pass" ? "ok" : f.status === "fail" ? "bad" : ""}">${f.status === "pass" ? "✓ behaves as written" : f.status === "fail" ? "✕ drifted" : "untested"}</span>`;
+  };
+  const card = (p) => `<button class="agent ${ui.agentOpen === p.id ? "open" : ""}" data-agent="${esc(p.id)}">
+      <span class="agent-top"><strong>${esc(p.title)}</strong>${pill(p)}</span>
+      <span class="small muted">${p.fidelity ? esc(p.fidelity.metric) + (p.fidelity.target ? ` · target ${esc(p.fidelity.target)}` : "") : p.in_run ? "" : "Not on duty in this scenario."}</span>
+      ${a.llm && p.in_run ? `<span class="small">${p.calls.n} agent call(s), ${p.calls.ok} valid</span>` : ""}</button>`;
+  const open = a.personas.find((p) => p.id === ui.agentOpen);
+  const detail = open ? `<div class="agent-detail card">
+      <h4>${esc(open.title)} <span class="tag-actor">Simulated person (test actor)</span></h4>
+      <p class="small muted">Prompt file: prompts/actors/${esc(open.id)}.md, plus the shared rules. Edit it and record a new run to change how this persona behaves.</p>
+      <pre class="prompt">${esc(open.prompt)}</pre>
+      ${open.recent.length ? `<h4>Latest decisions in this run</h4>${open.recent.map((c) => `<details><summary>${esc(c.time)} · ${esc(c.role)} ${c.ok ? "" : `<span class="pill bad">fell back: ${esc(c.error || "invalid")}</span>`}</summary>
+        <p class="small muted">What it saw</p><pre class="prompt">${esc(c.prompt)}</pre><p class="small muted">What it decided</p><pre class="prompt">${esc(c.reply || "")}</pre></details>`).join("")}`
+        : `<p class="small muted">${a.llm ? "No decisions yet at this minute." : "This run uses scripted rules, so there are no agent decisions to show. Press “Watch AI demo day” to see the AI agents."}</p>`}
+    </div>` : "";
+  $("agents").innerHTML = `<p><strong>Who plays the people:</strong> ${esc(a.mode)}${a.llm ? ` · model: ${esc(a.model)} via Claude Code on a subscription ($0 billed)` : ""}.</p>
+    <p class="small muted">Test actors create the day; they are not graded. The product (estimator, safety rules, texts) is plain code and never shares a prompt or a model call with them. Persona fidelity (F1) checks each actor kept its habits, so the test stays realistic.</p>
+    <div class="agents-grid">${a.personas.map(card).join("")}</div>${detail}
+    <details><summary class="small">Shared rules every test actor follows</summary><pre class="prompt">${esc(a.rules)}</pre></details>`;
+  $("agents").querySelectorAll("[data-agent]").forEach((b) => (b.onclick = () => { ui.agentOpen = ui.agentOpen === b.dataset.agent ? null : b.dataset.agent; loadAgents(true); }));
+  clearTimeout(agentsTimer);
+  if (ui.last?.control?.running) agentsTimer = setTimeout(() => loadAgents(false), 3000);
+}

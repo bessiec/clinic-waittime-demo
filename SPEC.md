@@ -162,7 +162,7 @@ The demo shows how the product behaves in a simulated clinic; it does not show h
 
 ## Build plan
 
-Build the evals before the agents, so every later milestone is judged by the same scorecard. Suggested stack: Python + SQLite for the simulation and evals, a small web front end for the four panes, Claude API for the LLM agents.
+Build the evals before the agents, so every later milestone is judged by the same scorecard. Suggested stack: Python + SQLite for the simulation and evals, a small web front end for the four panes, and the Claude Code CLI on the owner's subscription for the LLM agents (no API key, no per-call cost).
 
 ### Milestone 1: Skeleton and scripted world
 
@@ -196,7 +196,7 @@ Build the evals before the agents, so every later milestone is judged by the sam
 **Goal:** replace scripted people with agents that behave like imperfect people.
 
 - **Build:** LLM front-desk agents (Dana, Luis, Kim, Pat) and patient agents (Grace, Maria, Mr. Chen, Ana, Jordan, Rosa, Tom), each with a persona prompt and habit rates; patient survey answers; persona-fidelity checks comparing each agent's actual behavior to its rates; cost logged per run.
-- **Done when:** fidelity checks pass (agents haven't drifted toward polite and punctual), gates still pass, and scores are reported across seeds.
+- **Done when:** on one recorded LLM run (kim_goes_quiet, seed 42), fidelity checks pass for the personas it exercises (agents haven't drifted toward polite and punctual) and gates pass; the scripted suite still passes across seeds. One run is an example, not a rate; personas it doesn't exercise are reported as untested.
 - **Leaves out:** LLM product agents; product logic is still plain code.
 - **You see:** the same screens with messier, more realistic behavior.
 

@@ -144,3 +144,12 @@ td.time { white-space: nowrap; }
 @media (max-width: 760px) {
   .phone { width: 100%; }
 }
+
+/* Agents tab (Milestone 4) */
+.agents-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 8px; margin: 8px 0; }
+.agent { text-align: left; display: flex; flex-direction: column; gap: 4px; padding: 10px; border-radius: 10px; border: 1px dashed var(--axis); background: var(--surface); color: inherit; font: inherit; cursor: pointer; min-height: 44px; }
+.agent.open { outline: 2px solid var(--accent, #2a78d6); }
+.agent-top { display: flex; justify-content: space-between; gap: 6px; align-items: baseline; flex-wrap: wrap; }
+.agent-detail { margin: 8px 0; }
+.prompt { white-space: pre-wrap; font-size: 12px; max-height: 260px; overflow: auto; background: var(--surface-2); padding: 8px; border-radius: 6px; }
+.tag-actor { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 999px; border: 1px dashed #8c76bf; }

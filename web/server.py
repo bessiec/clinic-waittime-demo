@@ -21,7 +21,10 @@ from clinic.config import ROOT
 from clinic.director import Director
 from clinic.scenarios import SCENARIOS
 from clinic.store import Store
+from clinic.actors.llm import PROMPTS
+from evals import fidelity
 from evals import finance as finmod
+from evals.demo_run import paths as demo_paths
 from evals.common import open_run
 from evals.runner import EXACT, GRADERS, PLAN, SUITES
 from evals.scored import e10_finance_reconciles
@@ -48,7 +51,9 @@ class Session:
         threading.Thread(target=self._ticker, daemon=True).start()
 
     # --- loading ------------------------------------------------------------
-    def start(self, scenario, seed, approver="persona", replay=False):
+    def start(self, scenario, seed, approver="persona", replay=False, demo=False):
+        """demo=True plays the recorded LLM-agent day (Milestone 4) minute by minute.
+        It replays the saved agent replies, so watching it calls no model and costs nothing."""
         with self.lock:
             script = []
             if replay:
@@ -57,6 +62,16 @@ class Session:
                 script = [{"t": r["t"], "kind": r["kind"], "data": json.loads(r["data"])}
                           for r in self.store.rows("SELECT * FROM human_actions ORDER BY id")]
                 scenario, seed, approver = self.director.scenario, self.director.seed, self.director.approver
+                demo = bool(self.source and self.source.get("demo"))
+            actor_kw = {}
+            if demo:
+                rec, _ = demo_paths(self.cfg)
+                if not rec.exists():
+                    raise ValueError("no recorded AI demo day yet; run python3 -m evals.demo_run")
+                scenario, seed = self.cfg["actors"]["demo_scenario"], self.cfg["actors"]["demo_seed"]
+                actor_kw = {"actors": "replay", "replay_from": str(rec)}
+                if approver == "human":
+                    raise ValueError("the AI demo day replays Kim's recorded approvals; use approvals by desk persona")
             if scenario not in SCENARIOS:
                 raise ValueError(f"unknown scenario {scenario}")
             self.running = False
@@ -65,11 +80,11 @@ class Session:
             Director(scenario, seed, self.cfg, str(base_path), product=False).build().run()
             self.baseline = open_run(str(base_path))
             self.director = Director(scenario, seed, self.cfg, str(LIVE / f"{scenario}_s{seed}.sqlite"),
-                                     approver=approver, human_script=script).build().start()
+                                     approver=approver, human_script=script, **actor_kw).build().start()
             self.store = self.director.store
             self.mode = "live"
             self.source = {"scenario": scenario, "seed": seed, "approver": approver, "replay": bool(script),
-                           "replayed_actions": len(script)}
+                           "replayed_actions": len(script), "demo": demo}
             self._score = (None, None, 0.0)
             self._fin = (None, None)
 
@@ -149,6 +164,12 @@ class Session:
         live = not self.done()
         rows = []
         for cid in PLAN[sc]:
+            if cid == "F1" and live:
+                # Persona fidelity judges a whole day; the Agents tab shows it per persona as it goes.
+                rows.append({"id": "F1", "key": "F1", "scenario": sc, "score": "judged at the end of the day",
+                             "threshold": "all exercised", "passed": None, "detail": "", "evidence": [], "refs": [],
+                             "status": "pending", "exact": True})
+                continue
             if cid == "E10":
                 r = e10_finance_reconciles(self.store, self.cfg, shown=self.finance(), baseline=self.baseline)
             else:
@@ -170,6 +191,38 @@ class Session:
         rows.sort(key=lambda d: (not d["id"].startswith("G"), d["id"]))
         self._score = (key, rows, time.time())
         return rows
+
+    def agents(self):
+        """The Agents view: every test-actor persona, its prompt, what it did in the
+        loaded run and whether it behaved as written."""
+        with self.lock:
+            st = self.store
+            has_calls = st is not None and st.has_table("llm_calls") and st.one("SELECT COUNT(*) n FROM llm_calls")["n"] > 0
+            fid = {r["persona"]: r for r in fidelity.personas(st, self.cfg)} if st is not None and self.now() is not None else {}
+            desk = st.one("SELECT frontdesk FROM runs")["frontdesk"] if st is not None else None
+            out = []
+            for pid, kind in [("dana", "front desk"), ("luis", "front desk"), ("kim", "front desk"), ("pat", "front desk"),
+                              ("grace", "patient"), ("maria", "patient"), ("chen", "patient"), ("ana", "patient"),
+                              ("jordan", "patient"), ("rosa", "patient"), ("tom", "patient")]:
+                in_run = st is not None and (pid == desk if kind == "front desk" else True)
+                calls = []
+                stats = {"n": 0, "ok": 0, "usd": 0.0}
+                if has_calls and in_run:
+                    r = st.one("SELECT COUNT(*) n, COALESCE(SUM(ok),0) ok, COALESCE(SUM(modeled_usd),0) usd FROM llm_calls "
+                               "WHERE actor=? AND source != 'skipped' AND t <= ?", (pid, self.now() if self.now() is not None else -1))
+                    stats = {"n": r["n"], "ok": r["ok"], "usd": round(r["usd"], 4)}
+                    calls = [{"time": fmt_12h(c["t"]), "role": c["role"], "prompt": c["prompt"], "reply": c["response"],
+                              "ok": bool(c["ok"]), "error": c["error"]}
+                             for c in st.rows("SELECT * FROM llm_calls WHERE actor=? AND source != 'skipped' AND t <= ? "
+                                              "ORDER BY seq DESC LIMIT 8", (pid, self.now() if self.now() is not None else -1))]
+                prompt = (PROMPTS / f"{pid}.md").read_text()
+                row = fid.get(pid) if in_run else None
+                out.append({"id": pid, "kind": kind, "title": prompt.splitlines()[0].lstrip("# ").strip(), "prompt": prompt,
+                            "in_run": in_run, "fidelity": row, "calls": stats, "recent": calls})
+            return {"mode": ("LLM persona agents (recorded, replayed free)" if has_calls else
+                             "scripted rules (no model calls)" if st is not None else "no run loaded"),
+                    "llm": has_calls, "model": self.cfg["actors"]["model"],
+                    "rules": (PROMPTS / "_rules.md").read_text(), "personas": out}
 
     # --- payloads -----------------------------------------------------------------
     def state(self, pid, lang, at):
@@ -246,6 +299,8 @@ class Handler(BaseHTTPRequestHandler):
                     return self._send(200, panes.patient_log(s.store, q["pid"], min(at, now) if now is not None else -1))
             if u.path == "/api/suites":
                 return self._send(200, suites_summary())
+            if u.path == "/api/agents":
+                return self._send(200, s.agents())
             path = "index.html" if u.path in ("/", "") else u.path.lstrip("/")
             f = (STATIC / path).resolve()
             if STATIC.resolve() not in f.parents or not f.is_file():
@@ -267,6 +322,8 @@ class Handler(BaseHTTPRequestHandler):
             a = body.get("action")
             if a == "start":
                 s.start(body["scenario"], int(body["seed"]), body.get("approver", "persona"))
+            elif a == "start_demo":
+                s.start(None, None, "persona", demo=True)
             elif a == "replay":
                 s.start(None, None, replay=True)
             elif a == "open_saved":

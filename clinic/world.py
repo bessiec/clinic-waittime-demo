@@ -26,6 +26,7 @@ class Patient:
     provider: int | None = None
     told_status: str | None = None   # what the page showed at check-in
     told_high: int | None = None
+    told_low: int | None = None
 
     @property
     def waiting(self):

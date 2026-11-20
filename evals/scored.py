@@ -279,8 +279,13 @@ def e10_finance_reconciles(st, cfg, shown=None, baseline=None):
         if abs(cost["sms_usd"] - exp["sms_usd"]) > 1e-9:
             ev.add(f"cost log SMS ${cost['sms_usd']} != {exp['messages']} x ${fc['sms_usd_per_message']}")
         exp["model_calls"], exp["model_usd"] = cost["model_calls"], cost["model_usd"]
-        if cost["model_calls"] != 0:
-            ev.add(f"{cost['model_calls']} model calls logged in a scripted run")
+        n_calls = st.one("SELECT COUNT(*) n FROM llm_calls WHERE source != 'skipped'")["n"] if st.has_table("llm_calls") else 0
+        if cost["model_calls"] != n_calls:
+            ev.add(f"cost log says {cost['model_calls']} model calls, agent-call log has {n_calls}")
+        if cost["model_usd"] != 0:
+            ev.add(f"cost log bills ${cost['model_usd']} for model calls; agents run on the subscription ($0)")
+    if st.has_table("llm_calls"):
+        exp["model_usd_modeled"] = round(sum(r["modeled_usd"] or 0 for r in st.rows("SELECT modeled_usd FROM llm_calls")), 6)
     got = shown["counts"]
     for k in finance.COUNT_KEYS:
         if abs((got.get(k) or 0) - exp[k]) > 1e-9:

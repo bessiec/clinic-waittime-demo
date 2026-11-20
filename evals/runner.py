@@ -23,20 +23,20 @@ from pathlib import Path
 from clinic import config, director
 from clinic.config import ROOT, DEFAULT_PATH
 from clinic.scenarios import SCENARIOS
-from . import finance, gates, scored
+from . import fidelity, finance, gates, scored
 from .common import Result, open_run
 
 GATES = ["G1", "G2", "G3", "G4", "G5"]
 PLAN = {
-    "normal_day":           GATES + ["E1", "E2", "E4", "E9", "E10"],
-    "kim_goes_quiet":       ["G1", "G2!", "G3", "G4", "G5", "E4", "E9", "E10"],
-    "walkin_surge":         GATES + ["E1", "E2i", "E3", "E4", "E10"],
-    "luis_day":             GATES + ["E4", "E5", "E10"],
-    "pat_day":              GATES + ["E4", "E5", "E10"],
-    "understaffed_opening": GATES + ["E1", "E3", "E4", "E10"],
-    "luis_surge":           GATES + ["E1", "E3", "E4", "E5", "E10"],
+    "normal_day":           GATES + ["E1", "E2", "E4", "E9", "E10", "F1"],
+    "kim_goes_quiet":       ["G1", "G2!", "G3", "G4", "G5", "E4", "E9", "E10", "F1"],
+    "walkin_surge":         GATES + ["E1", "E2i", "E3", "E4", "E10", "F1"],
+    "luis_day":             GATES + ["E4", "E5", "E10", "F1"],
+    "pat_day":              GATES + ["E4", "E5", "E10", "F1"],
+    "understaffed_opening": GATES + ["E1", "E3", "E4", "E10", "F1"],
+    "luis_surge":           GATES + ["E1", "E3", "E4", "E5", "E10", "F1"],
 }
-EXACT = ("G1", "G2", "G3", "G4", "G5", "E9", "E10")   # pass/fail per seed, pooled as "n/N seeds pass"
+EXACT = ("G1", "G2", "G3", "G4", "G5", "E9", "E10", "F1")   # pass/fail per seed, pooled as "n/N seeds pass"
 GRADERS = {
     "G1": gates.g1_urgent_reply,
     "G2": gates.g2_no_stale_numbers,
@@ -52,6 +52,7 @@ GRADERS = {
     "E5": scored.e5_beats_staff,
     "E9": scored.e9_chen_clock,
     "E10": scored.e10_finance_reconciles,
+    "F1": fidelity.f1_persona_fidelity,
 }
 SUITES = ROOT / "runs" / "suites"
 

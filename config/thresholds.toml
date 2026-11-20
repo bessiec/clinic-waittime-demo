@@ -157,3 +157,39 @@ port = 8000
 speed_seconds = { "1x" = 1.0, "10x" = 0.1, "60x" = 0.016667 }
 default_speed = "1x"
 score_refresh_seconds = 1.0      # live scorecard regrades at most this often
+
+[actors]
+# Milestone 4: who plays the people. "scripted" (rules in code, free, default for the
+# suite), "llm" (persona agents via the Claude Code CLI on the owner's subscription:
+# no API key, no per-call charge), "replay" (reuse a recorded LLM run's replies, free).
+mode = "scripted"
+model = "sonnet"                 # Claude Code model alias for persona agents (Bessie's call, 2026-11-19)
+claude_bin = ""                  # empty: $CLAUDE_BIN, then `claude` on PATH, then the VS Code extension's copy
+call_timeout_seconds = 120
+max_calls_per_run = 400          # safety stop: past this, agents fall back to scripted rules
+demo_scenario = "kim_goes_quiet"
+demo_seed = 42
+# How often each desk persona looks up and deals with its backlog (minutes). Part of
+# the persona, not a rate the agent is told to hit.
+desk_cadence = {dana = 1, luis = 5, kim = 2, pat = 1}
+patient_wait_tick_minutes = 10   # named walk-ins reconsider (wait / text / leave) this often
+scheduled_plan_lead_minutes = 60 # scheduled personas plan their trip this long before the appointment
+memory_notes = 3                 # each agent sees its own last N one-line notes
+
+[fidelity]
+# Persona-fidelity checks (Milestone 4): does each test actor behave like its SPEC habits?
+# Tolerances are PROPOSED, not in SPEC. They catch drift toward polite and punctual.
+dana_on_time_rate = 0.90         # share of presses within 1 min of the event
+dana_typo_max = 0.08             # SPEC [2%]; up to this is fine on one run
+kim_quiet_minutes = 20           # SPEC [20+] min with no entries while queue > [8]
+kim_quiet_periods = [1, 2]       # SPEC [1–2] times per run
+kim_vague_rate = 0.80            # share of her "how long?" answers with no number
+luis_batch_gap = [8, 20]         # SPEC [10–15], loosened for one run
+luis_low_ratio_max = 0.85        # SPEC ~30% low: median of his guess / a fair headcount guess at that minute
+min_guesses = 10                 # fewer desk guesses than this: a guessing rate is reported as untested
+pat_large_miss_rate = [0.05, 0.60]  # share of guesses more than 25% off a fair headcount guess, either way
+chen_early = [20, 40]            # SPEC 30 min early
+ana_late = [8, 25]               # SPEC 15 min late
+grace_on_time = [-10, 5]         # minutes vs appointment
+tom_text_window = [0, 35]        # SPEC after ~20 min (sooner if called back first)
+maria_text_gap = [6, 15]         # SPEC every [10] min

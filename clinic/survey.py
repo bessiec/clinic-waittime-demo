@@ -46,7 +46,7 @@ class Survey:
         self.cfg = cfg
         self.rng = random.Random(f"{seed}:survey")
 
-    def answer(self, t, p, view_row, store, completed, end_t):
+    def answer(self, t, p, view_row, store, completed, end_t, agent=None):
         """p: world Patient; view_row: the views row at check-in (or None).
         completed: roomed and seen; otherwise they walked away at end_t."""
         if p.checked_in_at is None:
@@ -62,7 +62,12 @@ class Survey:
                       else (view_row["behind_low"], view_row["behind_high"]))
         else:
             lo = hi = None
-        ans = list(score(status, lo, hi, waited, completed, self.cfg))
+        ans = None
+        if agent is not None:     # Milestone 4: the patient agent answers; the same noise rate applies
+            got = agent.survey(t, status, lo, hi, waited, completed)
+            ans = list(got) if got else None
+        if ans is None:
+            ans = list(score(status, lo, hi, waited, completed, self.cfg))
         noisy = False
         for i in range(3):
             if self.rng.random() < self.cfg["survey"]["noise_rate"]:
