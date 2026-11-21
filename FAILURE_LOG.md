@@ -177,7 +177,7 @@ pass or fail (config `min_guesses`). All 140 scripted runs now pass F1.
 calls in run_costs because every skipped attempt was a row. Skipped attempts are now marked and excluded,
 in the director and in E10 alike.
 
-**Open · F1 kim on the AI demo run (kim_goes_quiet seed 42, 175 agent calls).** The AI Kim drifted two
+**2026-11-20 · F1 kim on the AI demo run (kim_goes_quiet seed 42, 175 agent calls).** The AI Kim drifted two
 ways. (1) Too punctual on calm stretches: median entry 0 min after the event (SPEC: late; scripted Kim
 2 min); 46 of 71 entries were same-minute. (2) Too far into the blackout: once the room passed 8 at
 15:03 she stopped entering anything for 170 minutes, to the end of the day, and forgot about half of
@@ -185,4 +185,27 @@ what happened (71 entries for 143 events). Her prompt says 20–30 minutes; her 
 wait" every 2 minutes, although each prompt told her how long it had been. F1 caught (1). It did not
 catch (2): the check counts quiet stretches of 20+ minutes (SPEC [20+]) with no upper limit, so a 170-minute
 stretch counted as one acceptable blackout. Gates all passed (G2 exercised: 154 stale views, 0 leaks).
-Proposed: add an upper limit (45 min) to the check, sharpen Kim's prompt on both habits, re-record.
+Approved 2026-11-20: add an upper limit (45 min) to the check, sharpen Kim's prompt on both habits, re-record.
+Fix (2026-11-20): (a) F1 now caps a quiet stretch at 45 min (`kim_quiet_max_minutes`, PROPOSED, not in
+SPEC) and counts a stretch that runs to closing time. (b) A quiet stretch is now measured from the first
+event she left waiting, not from her last press, so calm minutes with nothing to enter don't count.
+(c) The cap then caught the *scripted* Kim on 7/20 seeds (stretches of 47–59 min): when her first
+blackout ended with the room still full, her second blackout started the same minute, before she
+entered anything, so two blackouts ran together. SPEC says she goes quiet "1–2 times", i.e. separately.
+Scripted Kim now catches up on the minute a blackout ends. (d) Kim's prompt now says she is 2–5 min
+late even when calm, and catches up after 20–30 min away even if the room is still full. Re-recorded
+the demo; result below.
+Side effect on the scripted suite (2026-11-20): E4 kim_goes_quiet "declined when it should" moved 53% → 42%
+(283/671 minutes). With Kim catching up between blackouts there are fewer stale minutes (671 vs 827) and
+the ones left are shorter, which the data-quality check is slower to notice. Already failing; tuning is
+Milestone 5 work. All gates still pass; F1 passes on every scripted run.
+
+**Open · F1 kim on the re-recorded AI demo (2026-11-20, 191 agent calls, $0 billed).** Both earlier drifts
+are fixed: median entry 4 min late (was 0), longest quiet stretch 26 min (was 170). New drift, the other
+way: 4 quiet stretches of 20–26 min (SPEC [1–2] per run). She steps away, catches up, and steps away
+again each time the room refills. Cause: her prompt says "once or twice" but nothing tells her how many
+times she has already done it; each call only sees the last 30 minutes. Proposed: add one line she
+would know herself ("times today you've stepped away from the computer for 20+ min: N"), re-record once.
+Also seen: E4 on this run 60% (was 87%). At 15:03–15:06 the page showed a range from data 1–4 min old
+while the recorded queue said 4 and the true queue was 11–15. The data was fresh but incomplete
+(Kim skipped entries), and the data-quality check only looks at age. Product-side, Milestone 5.

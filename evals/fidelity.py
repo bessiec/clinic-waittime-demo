@@ -11,7 +11,7 @@ import statistics
 
 from clinic.texting import detect_language
 from clinic.urgent import is_urgent
-from clinic.clock import fmt
+from clinic.clock import fmt, parse
 from .common import Ev, Result, patients, run_info, truth_times
 
 STATUS = ("checkin", "roomed", "checked_out")
@@ -90,21 +90,38 @@ def desk_row(st, cfg):
     if desk == "kim":
         q = _queue_at(st)
         times = sorted({p for p, _, _, _ in d})
-        quiet = []
-        for a, b in zip(times, times[1:]):
+        close = parse(cfg["clinic"]["close"])
+        if times and times[-1] < close:
+            times.append(close)          # a stretch that runs to closing time counts too
+        events = sorted(r["t"] for r in st.rows(
+            "SELECT t FROM truth WHERE type IN ('checkin','roomed','checkout','left')"))
+        quiet, too_long = [], []
+        for a0, b in zip(times, times[1:]):
+            # A quiet stretch starts at the first thing she left waiting, not at her last press:
+            # calm minutes with nothing to enter aren't "not entering".
+            waiting = [e for e in events if a0 <= e < b]
+            if not waiting:
+                continue
+            a = max(a0, waiting[0])
             busy = [m for m in range(a, b) if q.get(m, 0) > cfg["frontdesk"]["kim"]["surge_queue"]]
             if b - a >= fc["kim_quiet_minutes"] and busy:
                 quiet.append((a, b))
-                ev.add(f"quiet {fmt(a)}–{fmt(b)} ({b - a} min) while the room had > {cfg['frontdesk']['kim']['surge_queue']}", a)
+                long_ = b - a > fc["kim_quiet_max_minutes"]
+                if long_:
+                    too_long.append((a, b))
+                ev.add(f"quiet {fmt(a)}–{fmt(b)} ({b - a} min{', too long' if long_ else ''}) while the room had > "
+                       f"{cfg['frontdesk']['kim']['surge_queue']}", a)
         verbal = st.rows("SELECT point,low FROM verbal_estimates WHERE actor='kim'")
         vague = sum(1 for v in verbal if v["point"] is None and v["low"] is None) / len(verbal) if verbal else None
         late = statistics.median(p - t for p, t, _, _ in d)
         lo, hi = fc["kim_quiet_periods"]
-        ok = lo <= len(quiet) <= hi and (vague is None or vague >= fc["kim_vague_rate"]) and late >= 1
+        ok = (lo <= len(quiet) <= hi and not too_long and (vague is None or vague >= fc["kim_vague_rate"])
+              and late >= 1)
+        longest = max((b - a for a, b in quiet), default=0)
         vtxt = "n/a" if vague is None else f"{vague:.0%}"
         return _row(desk, "front desk", "pass" if ok else "fail",
-                    f"{len(quiet)} quiet stretch(es) of {fc['kim_quiet_minutes']}+ min in a crowd; median entry {late:g} min late; {vtxt} vague answers",
-                    f"{lo}–{hi} quiet stretches, entries late, ≥{fc['kim_vague_rate']:.0%} vague", ev)
+                    f"{len(quiet)} quiet stretch(es) of {fc['kim_quiet_minutes']}+ min in a crowd (longest {longest}); median entry {late:g} min late; {vtxt} vague answers",
+                    f"{lo}–{hi} quiet stretches of {fc['kim_quiet_minutes']}–{fc['kim_quiet_max_minutes']} min, entries late, ≥{fc['kim_vague_rate']:.0%} vague", ev)
     if desk == "luis":
         times = sorted({p for p, _, _, _ in d})
         gaps = [b - a for a, b in zip(times, times[1:])]

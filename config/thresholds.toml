@@ -183,6 +183,7 @@ dana_on_time_rate = 0.90         # share of presses within 1 min of the event
 dana_typo_max = 0.08             # SPEC [2%]; up to this is fine on one run
 kim_quiet_minutes = 20           # SPEC [20+] min with no entries while queue > [8]
 kim_quiet_periods = [1, 2]       # SPEC [1–2] times per run
+kim_quiet_max_minutes = 45       # PROPOSED (not in SPEC): a quiet stretch longer than this is drift past "20–30 min"
 kim_vague_rate = 0.80            # share of her "how long?" answers with no number
 luis_batch_gap = [8, 20]         # SPEC [10–15], loosened for one run
 luis_low_ratio_max = 0.85        # SPEC ~30% low: median of his guess / a fair headcount guess at that minute

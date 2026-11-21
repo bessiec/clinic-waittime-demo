@@ -37,7 +37,7 @@ which is all the product is allowed to know.
 Dana, Luis, Kim and Pat each turn true events into status-button presses with their
 own delay, batching, skipping or typo rate from config, answer "how long?" in their
 own style, and approve or reject proposals with a one-line reason. Kim goes quiet for
-20–30 minutes as soon as the people in the waiting room pass her limit, once or twice
+20–30 minutes as soon as the people in the waiting room pass her limit, once or twice (catching up in between)
 a run. All of this is rules in code for
 now; Milestone 4 replaces them with LLM agents held to the same rates.
 
@@ -124,7 +124,7 @@ are logged as human actions that Replay feeds back for an identical run.
 From Milestone 4 the front desk and the seven named patients can be played by AI persona agents instead of scripted rules. Each persona's habits live in its own prompt file; the agent sees only what that person would see (the desk sees its backlog and waiting room, a patient sees the public page and its own texts) and answers each time with one action in a fixed JSON format. Calls go through the Claude Code CLI on Bessie's subscription (API keys are stripped from its environment, so nothing is billed), every reply is saved in the run's `llm_calls` table, and a failed call falls back to the scripted rule and is logged.
 
 ## Persona fidelity (`evals/fidelity.py`, check F1)
-These checks grade the actors, not the product: did Kim really go quiet in a crowd, did Mr. Chen arrive about 30 minutes early, did Rosa write only in Spanish. A desk persona's guesses are compared with a fair headcount guess at that minute, so the check measures the habit rather than the day. On scripted runs they pass by construction; on the AI run they show whether an agent drifted toward polite and punctual.
+These checks grade the actors, not the product: did Kim really go quiet in a crowd (for 20–45 minutes, not the rest of the day), did Mr. Chen arrive about 30 minutes early, did Rosa write only in Spanish. A desk persona's guesses are compared with a fair headcount guess at that minute, so the check measures the habit rather than the day. On scripted runs they pass by construction; on the AI run they show whether an agent drifted toward polite and punctual.
 
 ## Demo run (`evals/demo_run.py`, `demo/`)
 `python3 -m evals.demo_run` records one day (Kim goes quiet, seed 42) with live AI agents; `--replay` replays the saved replies and grades the day without calling a model. The recording is kept in git so anyone can replay it, and the web UI's "Watch AI demo day" button plays it minute by minute for free. One run is an example, not a rate.

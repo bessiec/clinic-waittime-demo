@@ -136,7 +136,8 @@ class Kim(FrontDesk):
     def flush(self, t, world):
         if self.in_blackout(t):
             return []
-        if (self.blackout_until is None or t >= self.blackout_until) and self.surge(world) \
+        # The minute a blackout ends she catches up first; a second blackout can start after that.
+        if (self.blackout_until is None or t > self.blackout_until) and self.surge(world) \
                 and self.blackouts_done < self.blackouts_planned and self.rng.random() < self.pc["blackout_start_prob"]:
             lo, hi = self.pc["blackout_minutes"]
             self.blackout_until = t + self.rng.randint(lo, hi)
