@@ -79,7 +79,7 @@ function renderControl(s) {
     }
     $("source").textContent = c.mode === "review"
       ? `Saved run from suite ${src.suite}: ${src.scenario}, seed ${src.seed} (read only)`
-      : `${src.demo ? "AI demo day (recorded agents, replayed free): " : ""}${src.scenario}, seed ${src.seed}, approvals by ${src.approver === "human" ? "you" : "desk persona"}${src.replay ? `, replaying ${src.replayed_actions} logged staff action(s)` : ""}`;
+      : `${src.demo ? "AI demo day (AI people, recorded, replayed free): " : "Rule-based people: "}${src.scenario}, seed ${src.seed}, approvals by ${src.approver === "human" ? "you" : "desk persona"}${src.replay ? `, replaying ${src.replayed_actions} logged staff action(s)` : ""}`;
   }
 }
 
@@ -370,7 +370,7 @@ async function loadAgents(force) {
       <pre class="prompt">${esc(open.prompt)}</pre>
       ${open.recent.length ? `<h4>Latest decisions in this run</h4>${open.recent.map((c) => `<details><summary>${esc(c.time)} · ${esc(c.role)} ${c.ok ? "" : `<span class="pill bad">fell back: ${esc(c.error || "invalid")}</span>`}</summary>
         <p class="small muted">What it saw</p><pre class="prompt">${esc(c.prompt)}</pre><p class="small muted">What it decided</p><pre class="prompt">${esc(c.reply || "")}</pre></details>`).join("")}`
-        : `<p class="small muted">${a.llm ? "No decisions yet at this minute." : "This run uses scripted rules, so there are no agent decisions to show. Press “Watch AI demo day” to see the AI agents."}</p>`}
+        : `<p class="small muted">${a.llm ? "No decisions yet at this minute." : "This run uses scripted rules, so there are no agent decisions to show. Press “Watch AI demo day (AI people, recorded)” to see the AI agents."}</p>`}
     </div>` : "";
   $("agents").innerHTML = `<p><strong>Who plays the people:</strong> ${esc(a.mode)}${a.llm ? ` · model: ${esc(a.model)} via Claude Code on a subscription ($0 billed)` : ""}.</p>
     <p class="small muted">Test actors create the day; they are not graded. The product (estimator, safety rules, texts) is plain code and never shares a prompt or a model call with them. Persona fidelity (F1) checks each actor kept its habits, so the test stays realistic.</p>

@@ -153,3 +153,5 @@ td.time { white-space: nowrap; }
 .agent-detail { margin: 8px 0; }
 .prompt { white-space: pre-wrap; font-size: 12px; max-height: 260px; overflow: auto; background: var(--surface-2); padding: 8px; border-radius: 6px; }
 .tag-actor { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 999px; border: 1px dashed #8c76bf; }
+
+.mode-hint { margin: 0; padding: 0 16px 6px; max-width: 110ch; }

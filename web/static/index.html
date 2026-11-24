@@ -19,8 +19,8 @@
       <option value="persona">desk persona</option>
       <option value="human">me (staff console)</option>
     </select></label>
-    <button id="start" class="primary">Start run</button>
-    <button id="demo" title="Play the recorded day where AI agents play Kim and the patients. Replayed from the recording: no model calls, no cost.">Watch AI demo day</button>
+    <button id="start" class="primary" title="Any scenario and seed. The front desk and patients follow rules written in code. Computed live, free.">Run a day (rule-based people)</button>
+    <button id="demo" title="Play the recorded day where AI agents play Kim and the patients. Replayed from the recording: no model calls, no cost.">Watch AI demo day (AI people, recorded)</button>
     <span class="sep"></span>
     <button id="play" disabled>Play</button>
     <button id="step" disabled title="Advance one simulated minute">Step</button>
@@ -28,6 +28,7 @@
     <span class="seg" id="speeds" role="group" aria-label="Speed"></span>
     <span class="clock" id="clock">no run</span>
   </div>
+  <p class="mode-hint small muted">Both play a clinic day with the same product. <b>Run a day</b>: pick any scenario; the front desk and patients follow written rules. <b>AI demo day</b>: one recorded day where AI agents play Kim and the patients from their persona prompts; replayed free, with no new AI calls.</p>
   <div class="scrub">
     <input id="scrub" type="range" min="0" max="0" value="0" disabled aria-label="Look back to a minute">
     <button id="live" disabled>Live</button>
