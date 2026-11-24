@@ -175,6 +175,7 @@ desk_cadence = {dana = 1, luis = 5, kim = 2, pat = 1}
 patient_wait_tick_minutes = 10   # named walk-ins reconsider (wait / text / leave) this often
 scheduled_plan_lead_minutes = 60 # scheduled personas plan their trip this long before the appointment
 memory_notes = 3                 # each agent sees its own last N one-line notes
+step_away_minutes = 20           # desk agents are told how many times today they went this long without entering anything
 
 [fidelity]
 # Persona-fidelity checks (Milestone 4): does each test actor behave like its SPEC habits?

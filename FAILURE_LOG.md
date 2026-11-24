@@ -200,7 +200,7 @@ Side effect on the scripted suite (2026-11-20): E4 kim_goes_quiet "declined when
 the ones left are shorter, which the data-quality check is slower to notice. Already failing; tuning is
 Milestone 5 work. All gates still pass; F1 passes on every scripted run.
 
-**Open · F1 kim on the re-recorded AI demo (2026-11-20, 191 agent calls, $0 billed).** Both earlier drifts
+**2026-11-20 · F1 kim on the re-recorded AI demo (2026-11-20, 191 agent calls, $0 billed).** Both earlier drifts
 are fixed: median entry 4 min late (was 0), longest quiet stretch 26 min (was 170). New drift, the other
 way: 4 quiet stretches of 20–26 min (SPEC [1–2] per run). She steps away, catches up, and steps away
 again each time the room refills. Cause: her prompt says "once or twice" but nothing tells her how many
@@ -209,3 +209,13 @@ would know herself ("times today you've stepped away from the computer for 20+ m
 Also seen: E4 on this run 60% (was 87%). At 15:03–15:06 the page showed a range from data 1–4 min old
 while the recorded queue said 4 and the true queue was 11–15. The data was fresh but incomplete
 (Kim skipped entries), and the data-quality check only looks at age. Product-side, Milestone 5.
+Fix (2026-11-24): every desk agent's prompt now includes "Times today you've stepped away from the
+computer for 20+ min: N", counted from its own entries (`step_away_minutes`), and Kim's persona says she
+doesn't step away again once it's 2. Third recording (192 calls, $0 billed, $1.90 modeled): F1 8/8, Kim
+has 1 quiet stretch of 24 min, entries a median 3 min late, 100% vague answers. Gates pass.
+
+**Open · E4 on the third AI recording: 30% declined when it should (13/44).** Product-side, not an actor
+problem. At 15:03–15:06 the page showed a range while the recorded queue said 4 and the true queue was
+11–15. The data was 1–4 min old, but Kim had skipped entries, so it was incomplete. The data-quality
+check only looks at data age. The better-behaved Kim makes this worse: she keeps entering a few things,
+so the data never looks old. To fix in Milestone 5 (data-quality agent).

@@ -143,9 +143,13 @@ class LLMDesk:
         rooms = world.in_room()
         since = "nothing yet today" if self.last_entry_t is None else f"{hm(self.last_entry_t)} ({t - self.last_entry_t} min ago)"
         recent = sum(1 for x in self.entries if t - x <= 30)
+        gap = self.cfg["actors"]["step_away_minutes"]
+        marks = self.entries + ([t] if self.entries else [])
+        stepped = sum(1 for a, b in zip(marks, marks[1:]) if b - a >= gap)   # her own memory of the day
         lines = [f"Time: {hm(t)}.",
                  f"Waiting room: {waiting} people waiting. {len(rooms)} in exam rooms.",
-                 f"You last entered anything in the computer: {since}. Times you entered something in the last 30 min: {recent}."]
+                 f"You last entered anything in the computer: {since}. Times you entered something in the last 30 min: {recent}.",
+                 f"Times today you've stepped away from the computer for {gap}+ min: {stepped}."]
         mem = self.notes[-self.cfg["actors"]["memory_notes"]:]
         if mem:
             lines.append("Your recent notes to yourself:\n" + "\n".join(f"  {n}" for n in mem))
