@@ -125,6 +125,8 @@ $("demo").onclick = async () => {   // step 1: load the recording and start play
   if (!$("err").textContent) control({ action: "play" });
 };
 $("scenario").onchange = $("approver").onchange = showRunHints;
+// Pick a new patient mix (the run's seed). The number is recorded, so the day still replays exactly.
+$("shuffle").onclick = () => { let n; do { n = Math.floor(Math.random() * 1000); } while (String(n) === $("seed").value); $("seed").value = n; };
 document.querySelectorAll("[data-more]").forEach((l) => (l.onclick = (e) => {
   e.preventDefault(); $("about").open = true;
   $(l.dataset.more === "seed" ? "about-seed" : "about-days").scrollIntoView({ behavior: "smooth", block: "nearest" });
@@ -168,8 +170,8 @@ function renderControl(s) {
     loadDesk();
   }
   $("source").textContent = c.mode === "review"
-    ? `Saved run from suite ${src.suite}: ${src.scenario}, seed ${src.seed} (read only)`
-    : `${src.demo ? "Demo (AI people, recorded, replayed free): " : "Your simulation (rule-based people): "}${src.scenario}, seed ${src.seed}, approvals by ${src.approver === "human" ? "you" : "desk persona"}${src.replay ? `, replaying ${src.replayed_actions} logged staff action(s)` : ""}`;
+    ? `Saved run from suite ${src.suite}: ${scName(src.scenario)}, patient mix ${src.seed} (read only)`
+    : `${src.demo ? "Demo (AI people, recorded, replayed free): " : "Your simulation (rule-based people): "}${scName(src.scenario)}, patient mix ${src.seed}, approvals by ${src.approver === "human" ? "you" : "desk persona"}${src.replay ? `, replaying ${src.replayed_actions} logged staff action(s)` : ""}`;
   $("brand-sub").textContent = `A simulated afternoon at a small clinic · ${scName(src.scenario)}${ui.desk ? ` · ${ui.desk.split(",")[0]} on the front desk` : ""}${src.demo ? " · AI people (recorded)" : ""}`;
 }
 async function loadDesk() {
@@ -294,7 +296,7 @@ function moment(s) {
   const S = (label, k) => ({ label, k });
   if (!st) return { title: c.source.demo ? "The demo is loaded" : "Your simulation is loaded", gate: "G5", goal: null,
     body: "The clinic hasn’t opened yet. Press Play to start the afternoon, or Step to go one minute at a time.",
-    why: "Every day starts from a seed, so the same day replays exactly.",
+    why: "The kind of day and patient mix are recorded, so the same afternoon replays exactly.",
     steps: [S("Day script sets up the afternoon", "rule")] };
   const desk = ui.desk ? ui.desk.split(",")[0] : "The front desk";
   const actor = c.source.demo ? "AI test actor" : "test actor";
@@ -353,7 +355,7 @@ function renderMoment(s) {
 // ---------------------------------------------------------------- how it connects
 const NODES = {
   director: { lane: "world", kind: "rule", name: "Day script", sub: "clock, bookings, staffing",
-    job: "Runs the simulated afternoon: the clock, the appointment book, who is working, and surprises like a walk-in rush. A fixed seed makes every day replayable exactly.",
+    job: "Runs the simulated afternoon: the clock, the appointment book, who is working, and surprises like a walk-in rush. The patient mix number makes every day replayable exactly.",
     autonomy: "Not applicable: it sets the scene", built: "Plain code", evals: "Replays must match exactly, table for table", today: "Built." },
   desk: { lane: "world", kind: "sim", name: "Front desk", sub: "Dana, Luis, Kim, Pat",
     job: "Four simulated receptionists with real-world habits: Kim stops updating when swamped, Luis batches updates and guesses from headcount, Pat guesses erratically, Dana is accurate.",
@@ -435,7 +437,7 @@ async function renderPromises() {
   const s = (await suites())[0];
   if (!s) { $("promises").innerHTML = `<section class="card"><p class="muted">No saved test run yet. Run <code>python3 -m evals</code> to test every kind of day.</p></section>`; return; }
   const days = new Set(s.checks.map((c) => c.scenario)).size;
-  $("prom-lede").textContent = `Every change is tested on ${days * s.seeds} simulated days: ${days} kinds of day, ${s.seeds} versions of each. Safety promises must hold on every single day. Accuracy goals are targets we report honestly, including the ones not met yet.`;
+  $("prom-lede").textContent = `Every change is tested on ${days * s.seeds} simulated days: ${days} kinds of day, ${s.seeds} patient mixes of each. Safety promises must hold on every single day. Accuracy goals are targets we report honestly, including the ones not met yet.`;
   const id = (x) => (ui.showIds ? `<span class="idtag">${esc(x)}</span>` : "");
   const gates = Object.keys(GATE_TEXT).map((g) => {
     const rows = s.checks.filter((c) => c.id === g);
@@ -478,7 +480,7 @@ async function renderPromises() {
       <span class="pill ${status[1] === "ok" ? "ok" : status[1] === "bad" ? "bad" : ""}">${status[1] === "ok" ? "✓ " : status[1] === "bad" ? "! " : ""}${status[0]}</span></div>`;
   };
   const goalsHtml = `<section class="card" aria-label="Accuracy goals" style="display:flex;flex-direction:column;gap:16px">
-    <div class="row-between" style="align-items:center"><div style="display:flex;gap:12px;align-items:center">${ICON.target}<div><div class="h2" style="margin:0">Accuracy goals</div><div class="small muted">Scored across ${s.seeds} versions of each day. The line on each bar is the goal.</div></div></div>
+    <div class="row-between" style="align-items:center"><div style="display:flex;gap:12px;align-items:center">${ICON.target}<div><div class="h2" style="margin:0">Accuracy goals</div><div class="small muted">Scored across ${s.seeds} patient mixes of each kind of day. The line on each bar is the goal.</div></div></div>
       <div class="seg-tabs" role="tablist" aria-label="Which days"><button role="tab" data-gset="tuning" class="${ui.goalSet === "tuning" ? "on" : ""}">Days we tuned on</button><button role="tab" data-gset="hold" class="${ui.goalSet === "hold" ? "on" : ""}">Days held back</button></div></div>
     ${ui.goalSet === "hold" ? `<div class="callout info">${ICON.info}<div>Held-back days are never used to tune the product, so they show how it copes with something new. One of them (understaffed opening) was used for a fix after Milestone 2, so it is no longer a clean test and will be replaced.</div></div>` : ""}
     <div class="goals">${rows.map(goalRow).join("")}</div>
@@ -583,11 +585,11 @@ async function loadSuites() {
   const rows = s.checks.map((c) => {
     const fails = c.passed === false ? `<ul class="evid">${c.evidence.slice(0, 5).map((e, i) => {
       const r = c.refs[i] || {}; const n = window._srefs.push({ ...r, scenario: c.scenario }) - 1;
-      return `<li>${r.kept ? `<a data-sref="${n}">${esc(e)}</a>` : `<a class="dead" title="This seed's run file was pruned">${esc(e)}</a>`}</li>`; }).join("")}</ul>`
-      + (c.failing_kept.length ? `<div class="small">Open a failing seed: ${c.failing_kept.map((sd) => { const n = window._srefs.push({ seed: sd, scenario: c.scenario, t: null, pid: null, kept: true }) - 1; return `<a class="linkish" data-sref="${n}">seed ${sd}</a>`; }).join(" ")}</div>` : "") : "";
+      return `<li>${r.kept ? `<a data-sref="${n}">${esc(e)}</a>` : `<a class="dead" title="This day's saved run was pruned">${esc(e)}</a>`}</li>`; }).join("")}</ul>`
+      + (c.failing_kept.length ? `<div class="small">Open a failing patient mix: ${c.failing_kept.map((sd) => { const n = window._srefs.push({ seed: sd, scenario: c.scenario, t: null, pid: null, kept: true }) - 1; return `<a class="linkish" data-sref="${n}">mix ${sd}</a>`; }).join(" ")}</div>` : "") : "";
     return `<tr><td><b>${esc(c.id)}</b><div class="small muted">${esc(checkName(c.id))}</div></td><td>${esc(scName(c.scenario))}${c.group === "hold-out" ? ` <span class="pill">held back</span>` : ""}</td><td>${esc(c.score)}${fails}</td><td class="status ${c.passed === null ? "info" : c.passed ? "pass" : "fail"}">${c.passed === null ? "info" : c.passed ? "pass" : "fail"}</td></tr>`;
   }).join("");
-  $("suite").innerHTML = `<p>Test run ${esc(s.suite_id)} · ${s.seeds} versions of each kind of day. Click a failure to open that day’s saved run at that minute.</p>
+  $("suite").innerHTML = `<p>Test run ${esc(s.suite_id)} · ${s.seeds} patient mixes of each kind of day. Click a failure to open that day’s saved run at that minute.</p>
     <div class="scrollx"><table class="score"><tr><th>Check</th><th>Day</th><th>Score</th><th>Result</th></tr>${rows}</table></div>`;
   $("suite").querySelectorAll("[data-sref]").forEach((a) => (a.onclick = async () => {
     const r = window._srefs[+a.dataset.sref];
@@ -628,7 +630,7 @@ async function renderResultsSuite() {
   const W = sc.map((k) => [k, s.finance[k].derived]);
   const bar = (v, color) => `<i style="width:calc(${Math.min(100, v * 100)}% * 0.82);background:${color}"></i>`;
   const costs = W.map(([, d]) => d.cost_per_day_modeled);
-  $("results-suite").innerHTML = `<h2 class="h2">Across every kind of day <span class="small muted" style="font-weight:600">(test run ${esc(s.suite_id)}, ${s.seeds} versions each)</span></h2>
+  $("results-suite").innerHTML = `<h2 class="h2">Across every kind of day <span class="small muted" style="font-weight:600">(test run ${esc(s.suite_id)}, ${s.seeds} patient mixes each)</span></h2>
     <div class="results-grid">
     <section class="card"><div><div class="h3" style="margin:0">Walk-ins who left before being seen</div><div class="small muted">Same day, same patients, with and without the product</div></div>
       <div class="legend"><span><i style="background:var(--accent)"></i>With the product</span><span><i style="background:var(--without)"></i>Without</span></div>

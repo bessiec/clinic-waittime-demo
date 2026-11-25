@@ -50,9 +50,10 @@
         <p class="hint"><span id="scenario-desc"></span> <a href="#about-days" class="more" data-more="days">All kinds of day</a></p>
       </div>
       <div class="field field-seed">
-        <label class="field-label" for="seed">Seed</label>
-        <input id="seed" type="number" min="0" step="1">
-        <p class="hint">Same number, same day. <a href="#about-seed" class="more" data-more="seed">What’s a seed?</a></p>
+        <label class="field-label" for="seed">Patient mix</label>
+        <div class="mix-row"><input id="seed" type="number" min="0" step="1" aria-describedby="mix-hint">
+          <button type="button" id="shuffle" class="btn" title="Pick a new patient mix">Try a different crowd</button></div>
+        <p class="hint" id="mix-hint">Who shows up, when, and how long visits take. Same number, same afternoon. <a href="#about-seed" class="more" data-more="seed">How this works</a></p>
       </div>
       <div class="field">
         <label class="field-label" for="approver">Approvals by</label>
@@ -70,12 +71,12 @@
     </div>
   </div>
   <details class="about" id="about">
-    <summary class="sr-only">About kinds of day and seeds</summary>
+    <summary class="sr-only">About kinds of day and patient mixes</summary>
     <div class="about-body">
       <section id="about-days"><h3>Kinds of day</h3><dl id="days-list"></dl></section>
-      <section id="about-seed"><h3>What’s a seed?</h3>
-        <p>A seed is the starting number for everything random in the day: who walks in and when, and how long each visit takes. The same kind of day with the same seed plays out exactly the same every time, so a problem can be found again and re-checked after a fix.</p>
-        <p>Change the number to get a different afternoon of the same kind. The tests run 20 seeds of every kind of day.</p></section>
+      <section id="about-seed"><h3>Patient mix</h3>
+        <p>The kind of day sets the situation, like Kim on the desk with a 3 PM rush. The patient mix picks the particular crowd: who walks in and when, and how long each visit takes.</p>
+        <p>The same number always plays out exactly the same afternoon, so a problem can be found again and re-checked after a fix. “Try a different crowd” picks a new number. The tests run 20 patient mixes of every kind of day.</p></section>
       <button type="button" class="btn small" id="about-close">Close</button>
     </div>
   </details>
@@ -90,7 +91,7 @@
     <div class="scrub">
       <input id="scrub" type="range" min="0" max="0" value="0" disabled aria-label="Look back to a minute">
       <button id="live" class="btn small" disabled>Back to now</button>
-      <button id="replay" class="btn small" disabled title="Same kind of day, seed and your logged staff actions: should replay identically">Replay</button>
+      <button id="replay" class="btn small" disabled title="Same kind of day, patient mix and your logged staff actions: should replay identically">Replay</button>
     </div>
   </div>
   <div class="runbar-status"><span id="source" class="muted small"></span> <span id="err" class="err" role="alert"></span></div>

@@ -137,12 +137,14 @@ code, pre { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 1
 .path > .field { flex: 1 1 0; }
 .path-sim > .field { flex: 1 1 150px; }
 .path-sim > .field-day { flex: 2 1 240px; }
-.path-sim > .field-seed { flex: 0 1 130px; }
+.path-sim > .field-seed { flex: 1.4 1 230px; }
 .stepnum { flex: none; width: 26px; height: 26px; margin-top: 20px; border-radius: 50%; display: grid; place-items: center; font-weight: 800; font-size: 14px; background: var(--accent-soft); color: var(--accent-soft-ink); border: 1px solid var(--accent-line); }
 .field { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
 .field-label { font-size: 12.5px; font-weight: 700; color: var(--muted); }
 .field select, .field input, .field .btn { min-height: 40px; width: 100%; }
-.field-seed input { max-width: 120px; }
+.mix-row { display: flex; gap: 6px; }
+.mix-row input { flex: 0 0 76px; width: 76px; }
+.mix-row .btn { flex: 1 1 auto; width: auto; white-space: nowrap; }
 .hint { margin: 0; font-size: 12.5px; line-height: 1.4; color: var(--muted); }
 .hint .more { font-weight: 600; white-space: nowrap; }
 .about-body { display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); gap: 8px 24px; padding: 12px 14px; border: 1px solid var(--line-2); border-radius: 16px; background: var(--surface); font-size: 14px; }
