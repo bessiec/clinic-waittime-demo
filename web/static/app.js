@@ -23,6 +23,21 @@ const ICON = {
 const SC_NAME = { normal_day: "Normal day", walkin_surge: "Walk-in rush", kim_goes_quiet: "Kim goes quiet", luis_day: "Luis on the desk",
   pat_day: "Pat on the desk", understaffed_opening: "Understaffed opening", luis_surge: "Luis on a rush day" };
 const scName = (k) => SC_NAME[k] || String(k || "").replace(/_/g, " ");
+// Plain-language descriptions of each kind of day, for the run bar and the "All kinds of day" panel.
+const SC_DESC = { normal_day: "Dana, an accurate receptionist, on the desk. A typical afternoon.",
+  kim_goes_quiet: "Kim on the desk. A 3 PM rush swamps her and she stops updating for a while. The demo is this day.",
+  walkin_surge: "Dana on the desk. A rush of walk-ins from 3 to 4 PM.",
+  luis_day: "Luis on the desk. He updates in batches and guesses waits from a headcount.",
+  pat_day: "Pat on the desk. Updates on time, but the guesses are erratic.",
+  understaffed_opening: "Held-back test day: one provider is out from opening. Never used to tune the product.",
+  luis_surge: "Held-back test day: Luis on the desk during a walk-in rush. Never used to tune the product." };
+const APPROVER_DESC = { persona: "The simulated front desk approves or rejects suggestions.",
+  human: "You approve or reject suggestions, with a reason, in the front desk panel." };
+function showRunHints() {
+  const k = $("scenario").value;
+  $("scenario-desc").textContent = SC_DESC[k] || (ui.meta && ui.meta.scenarios[k]) || "";
+  $("approver-desc").textContent = APPROVER_DESC[$("approver").value] || "";
+}
 const GATE_TEXT = { G1: "Urgent messages get the fixed emergency reply, never a wait time", G2: "No wait time shown when data is over 15 minutes old",
   G3: "No one moves in line without a logged staff approval", G4: "No patient names or medical words on the page or in texts",
   G5: "Every view says when it was updated and how to get emergency help" };
@@ -85,6 +100,9 @@ function setupMeta(meta) {
   sel.innerHTML = Object.entries(meta.scenarios).map(([k, d]) =>
     `<option value="${esc(k)}" title="${esc(d)}">${esc(scName(k))}${meta.holdouts.includes(k) ? " (held-back test day)" : ""}</option>`).join("");
   $("seed").value = meta.default_seed;
+  ui.meta = meta;
+  $("days-list").innerHTML = Object.keys(meta.scenarios).map((k) => `<dt>${esc(scName(k))}</dt><dd>${esc(SC_DESC[k] || meta.scenarios[k])}</dd>`).join("");
+  showRunHints();
   $("speeds").innerHTML = meta.speeds.map((s) => `<button data-speed="${esc(s)}">${esc(s)}</button>`).join("");
   $("speeds").onclick = (e) => { const s = e.target.dataset.speed; if (s) control({ action: "speed", speed: s }); };
   ui.metaDone = true;
@@ -100,6 +118,12 @@ $("demo").onclick = async () => {   // step 1: load the recording and start play
   await control({ action: "start_demo" });
   if (!$("err").textContent) control({ action: "play" });
 };
+$("scenario").onchange = $("approver").onchange = showRunHints;
+document.querySelectorAll("[data-more]").forEach((l) => (l.onclick = (e) => {
+  e.preventDefault(); $("about").open = true;
+  $(l.dataset.more === "seed" ? "about-seed" : "about-days").scrollIntoView({ behavior: "smooth", block: "nearest" });
+}));
+$("about-close").onclick = () => { $("about").open = false; };
 $("live").onclick = () => { ui.at = null; ui.focusT = null; poll(true); };
 $("scrub").oninput = (e) => { ui.at = +e.target.value; poll(true); };
 $("pid").onchange = (e) => { ui.pid = e.target.value; poll(true); };
@@ -134,6 +158,7 @@ function renderControl(s) {
     ui.srcKey = srcKey;
     $("scenario").value = src.scenario; $("seed").value = src.seed;
     if (src.approver === "human" || src.approver === "persona") $("approver").value = src.approver;
+    showRunHints();
     loadDesk();
   }
   $("source").textContent = c.mode === "review"
