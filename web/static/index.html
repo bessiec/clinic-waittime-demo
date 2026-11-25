@@ -4,110 +4,230 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Clinic Wait Time Demo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
-<header class="bar">
+<div class="wrap">
+
+<header class="top">
   <div class="brand">
-    <strong>Clinic Wait Time Demo</strong>
-    <span class="sim-label">Simulation, synthetic data</span>
+    <div class="logo" aria-hidden="true"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="8"/><path d="M12 8v4l3 2"/></svg></div>
+    <div>
+      <div class="brand-name">Clinic Wait Time</div>
+      <div class="brand-sub" id="brand-sub">A simulated afternoon at a small clinic</div>
+    </div>
+    <span class="tag k-simdata"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M9 3h6M10 3v6L4 19a2 2 0 0 0 2 3h12a2 2 0 0 0 2-3l-6-10V3"/></svg>Simulation, synthetic data</span>
   </div>
-  <div class="controls" role="toolbar" aria-label="Run controls">
-    <label>Scenario <select id="scenario"></select></label>
-    <label>Seed <input id="seed" type="number" min="0" step="1"></label>
-    <label>Approvals by <select id="approver">
-      <option value="persona">desk persona</option>
-      <option value="human">me (staff console)</option>
-    </select></label>
-    <button id="start" class="primary" title="Any scenario and seed. The front desk and patients follow rules written in code. Computed live, free.">Run a day (rule-based people)</button>
-    <button id="demo" title="Play the recorded day where AI agents play Kim and the patients. Replayed from the recording: no model calls, no cost.">Watch AI demo day (AI people, recorded)</button>
-    <span class="sep"></span>
-    <button id="play" disabled>Play</button>
-    <button id="step" disabled title="Advance one simulated minute">Step</button>
-    <button id="toend" disabled title="Play the rest of the day instantly">To end</button>
-    <span class="seg" id="speeds" role="group" aria-label="Speed"></span>
-    <span class="clock" id="clock">no run</span>
-  </div>
-  <p class="mode-hint small muted">Both play a clinic day with the same product. <b>Run a day</b>: pick any scenario; the front desk and patients follow written rules. <b>AI demo day</b>: one recorded day where AI agents play Kim and the patients from their persona prompts; replayed free, with no new AI calls.</p>
-  <div class="scrub">
-    <input id="scrub" type="range" min="0" max="0" value="0" disabled aria-label="Look back to a minute">
-    <button id="live" disabled>Live</button>
-    <button id="replay" disabled title="Same scenario, seed and your logged staff actions: should replay identically">Replay</button>
-    <span id="source" class="muted"></span>
-    <span id="err" class="err" role="alert"></span>
-  </div>
+  <nav class="views" aria-label="Views">
+    <a href="#clinic" data-view="clinic" class="on">Clinic view</a>
+    <span class="views-sep">Behind the scenes</span>
+    <a href="#flow" data-view="flow">How it connects</a>
+    <a href="#promises" data-view="promises">Promises and goals</a>
+    <a href="#results" data-view="results">Results</a>
+    <a href="#actors" data-view="actors">Test actors</a>
+    <a href="#inspect" data-view="inspect">Run inspector</a>
+  </nav>
 </header>
 
-<main class="grid">
-  <section class="pane phone-pane" aria-label="Patient phone">
-    <h2>Patient phone <span class="sim-label">Simulation, synthetic data</span></h2>
-    <label class="viewas">Viewing as <select id="pid"></select></label>
-    <div class="phone" id="phone">
-      <div class="phone-sim" id="phone-sim">Simulation, synthetic data</div>
-      <div class="phone-top">
-        <span id="phone-title">Clinic wait times</span>
-        <span class="seg small" role="group" aria-label="Language">
-          <button data-lang="en" class="on">EN</button><button data-lang="es">ES</button>
-        </span>
+<section class="runbar card" aria-label="Run controls">
+  <div class="runbar-row">
+    <div class="runbar-start">
+      <button id="start" class="btn primary" title="Any scenario and seed. The front desk and patients follow rules written in code. Computed live, free.">Run a day (rule-based people)</button>
+      <button id="demo" class="btn" title="Play the recorded day where AI agents play Kim and the patients. Replayed from the recording: no model calls, no cost.">Watch AI demo day (AI people, recorded)</button>
+    </div>
+    <div class="runbar-play" role="toolbar" aria-label="Playback">
+      <button id="play" class="btn" disabled>Play</button>
+      <button id="step" class="btn" disabled title="Advance one simulated minute">Step</button>
+      <button id="toend" class="btn" disabled title="Play the rest of the day instantly">To end</button>
+      <span class="seg" id="speeds" role="group" aria-label="Speed"></span>
+      <span class="clock mono" id="clock">no run</span>
+    </div>
+  </div>
+  <p class="mode-hint">Both play a clinic day with the same product. <b>Run a day</b>: pick any scenario below; the front desk and patients follow written rules. <b>AI demo day</b>: one recorded day where AI agents play Kim and the patients from their persona prompts; replayed free, with no new AI calls.</p>
+  <div class="runbar-row">
+    <div class="scrub">
+      <input id="scrub" type="range" min="0" max="0" value="0" disabled aria-label="Look back to a minute">
+      <button id="live" class="btn small" disabled>Back to now</button>
+      <button id="replay" class="btn small" disabled title="Same scenario, seed and your logged staff actions: should replay identically">Replay</button>
+    </div>
+    <details class="advanced">
+      <summary>Advanced: scenario, seed, approvals</summary>
+      <div class="advanced-body">
+        <label>Scenario <select id="scenario"></select></label>
+        <label>Seed <input id="seed" type="number" min="0" step="1"></label>
+        <label>Approvals by <select id="approver">
+          <option value="persona">desk persona</option>
+          <option value="human">me (staff console)</option>
+        </select></label>
+        <span class="small muted">Then press “Run a day”.</span>
       </div>
-      <div id="page" class="page"><p class="muted">Start a run to see the public page.</p></div>
-      <h3 id="thread-title">Your texts</h3>
-      <div id="thread" class="thread"></div>
-    </div>
-    <p class="note">The page shows the guardrail text word for word, one sentence per line. What you see is what the gates grade.</p>
-  </section>
+    </details>
+  </div>
+  <div class="runbar-status"><span id="source" class="muted small"></span> <span id="err" class="err" role="alert"></span></div>
+</section>
 
-  <section class="pane staff-pane" aria-label="Staff console">
-    <h2>Staff console <span class="sim-label">Simulation, synthetic data</span></h2>
-    <div id="estimate" class="card"></div>
-    <h3>Approval inbox</h3>
-    <div id="inbox"></div>
-    <div id="decided"></div>
-    <h3>Data-quality flags</h3>
-    <div id="flags"></div>
-    <div class="cols2">
-      <div><h3>Scheduled queue</h3><div id="queue"></div></div>
-      <div><h3>Walk-in queue</h3><div id="walkins"></div></div>
-    </div>
-    <h3>In a room</h3>
-    <div id="inroom"></div>
-    <p class="note">Shows only what the front desk recorded, not what really happened.</p>
-  </section>
+<!-- ============================================================ CLINIC VIEW -->
+<main id="view-clinic" class="view" aria-label="Clinic view">
+  <div class="stage">
+    <article class="caption" aria-live="polite">
+      <div class="cap-time mono"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg><span id="cap-time">Not started</span></div>
+      <h1 id="cap-title">Press a button above to start a day</h1>
+      <p id="cap-body">“Run a day” plays any scenario with rule-based people. “Watch AI demo day” replays the day AI agents played Kim and the patients.</p>
+      <div class="cap-why"><div class="eyebrow">Why it matters</div><p id="cap-why">Everything you see is a simulation with synthetic people. The checks behind it are real.</p></div>
+    </article>
 
-  <section class="pane observer-pane" aria-label="Observer dashboard">
-    <h2>Observer dashboard <span class="sim-label">Simulation, synthetic data</span></h2>
-    <div class="tabs" role="tablist">
-      <button role="tab" data-tab="live" class="on">This run</button>
-      <button role="tab" data-tab="suite">Last suite</button>
-      <button role="tab" data-tab="agents">Agents</button>
+    <section class="phone-col" aria-label="Patient phone">
+      <div class="col-head">What the patient sees</div>
+      <div class="phone-ctl">
+        <label class="small">Viewing as <select id="pid"></select></label>
+        <span class="seg small" role="group" aria-label="Language"><button data-lang="en" class="on">EN</button><button data-lang="es">ES</button></span>
+      </div>
+      <div class="phone" id="phone">
+        <div class="screen">
+          <div class="phone-top"><span id="phone-title">Clinic wait times</span><span class="phone-sim" id="phone-sim">Simulation, synthetic data</span></div>
+          <div class="phone-body">
+            <div id="page" class="page"><p class="muted">Start a day to see the public page.</p></div>
+            <div class="thread-head" id="thread-title">Your texts</div>
+            <div id="thread" class="thread"></div>
+          </div>
+        </div>
+      </div>
+      <p class="note">The page text is shown word for word as the safety rules produced it. What you see is what the checks grade.</p>
+    </section>
+
+    <section class="desk-col" aria-label="Staff console">
+      <div class="col-head">What the front desk sees</div>
+      <div class="tablet">
+        <div class="tablet-head">
+          <div class="who"><div class="avatar" id="desk-initial" aria-hidden="true">?</div>
+            <div><div class="who-name" id="desk-name">Front desk</div><div class="small muted">simulated staff member (test actor)</div></div></div>
+          <span class="tag k-rule mono" id="desk-time">–</span>
+        </div>
+        <div class="stats" id="stats"></div>
+        <div id="estimate" class="est-wrap"></div>
+        <div id="flags"></div>
+        <div id="inbox"></div>
+        <div id="decided"></div>
+        <div class="sub-head">In a room</div>
+        <div id="inroom"></div>
+        <details class="line"><summary>See the full line</summary>
+          <div class="cols2">
+            <div><div class="sub-head">Scheduled</div><div id="queue"></div></div>
+            <div><div class="sub-head">Walk-ins</div><div id="walkins"></div></div>
+          </div>
+        </details>
+        <p class="note">Shows only what the front desk recorded, not what really happened.</p>
+      </div>
+    </section>
+  </div>
+
+  <section class="card bts" aria-label="Behind the scenes at this moment">
+    <div class="bts-head">
+      <div><div class="h3">Behind the scenes at <span id="bts-time">–</span></div><div class="small muted">Which parts of the system acted, in order</div></div>
+      <div class="key"><span class="tag k-sim">Simulated person (test actor)</span><span class="tag k-ai">Product AI agent</span><span class="tag k-rule">Fixed rule (plain code)</span><span class="tag k-staff">Staff decision</span><span class="tag k-out">What patients see</span></div>
     </div>
-    <div id="tab-live">
-      <h3>Scorecard <span id="score-note" class="muted"></span></h3>
+    <div class="steps" id="bts-steps"></div>
+    <div class="bts-checks" id="bts-checks"></div>
+  </section>
+  <footer class="foot">Simulation, synthetic data. Every person, visit and message here is synthetic. Results show how the product behaves in a simulation, not how it would perform in a real clinic. No triage or medical advice is given anywhere.</footer>
+</main>
+
+<!-- ============================================================ HOW IT CONNECTS -->
+<main id="view-flow" class="view" hidden aria-label="How the parts connect">
+  <div class="view-head">
+    <div class="eyebrow">Behind the scenes</div>
+    <h1>How the parts connect</h1>
+    <p class="lede">Simulated people create the day. The product reads what they record and decides what patients see. Click any part to see its job, how much it may do on its own, and which checks guard it.</p>
+  </div>
+  <div class="key"><span class="tag k-sim">Simulated person (test actor)</span><span class="tag k-ai">Product AI agent</span><span class="tag k-rule">Fixed rule (plain code)</span><span class="tag k-staff">Staff decision</span><span class="tag k-out">What patients see</span><span class="tag k-soon">Not built yet</span></div>
+  <div class="flow-grid">
+    <div class="flow-main" id="flow-main"></div>
+    <aside class="card flow-detail" id="flow-detail" aria-live="polite"></aside>
+  </div>
+  <footer class="foot">Simulation, synthetic data. No triage or medical advice anywhere in the product.</footer>
+</main>
+
+<!-- ============================================================ PROMISES AND GOALS -->
+<main id="view-promises" class="view" hidden aria-label="Promises and goals">
+  <div class="view-head row-between">
+    <div>
+      <div class="eyebrow">Behind the scenes</div>
+      <h1>Promises and goals</h1>
+      <p class="lede" id="prom-lede">Every change is tested on many simulated days. Safety promises must hold on every single day. Accuracy goals are targets we report honestly, including the ones not met yet.</p>
+    </div>
+    <button type="button" id="toggle-ids" class="btn ghost" aria-pressed="false" title="Show the check IDs used in SPEC.md (G1–G5, E1–E10, F1)">Show test IDs</button>
+  </div>
+  <div id="promises"></div>
+  <footer class="foot">Simulation, synthetic data. Scores describe the simulated clinic, not a real one.</footer>
+</main>
+
+<!-- ============================================================ RESULTS -->
+<main id="view-results" class="view" hidden aria-label="Results in this simulation">
+  <div class="view-head">
+    <div class="eyebrow">Behind the scenes</div>
+    <h1>Results in this simulation <span class="tag k-model">Money and staff time are modeled</span></h1>
+    <p class="lede">Each day is played twice with the same patients: once with the product, once without. These show how the parts relate in the simulation. They are not a forecast for a real clinic.</p>
+  </div>
+  <h2 class="h2">This day</h2>
+  <div id="finance"></div>
+  <div id="results-suite"></div>
+  <section class="card">
+    <div class="h3">Trend across saved test runs <span class="muted small" id="trend-note"></span></div>
+    <div id="trend"></div>
+  </section>
+  <section class="limits">
+    <div><h2>What these numbers can’t tell you</h2><p>This is a simulated clinic with synthetic people. Visit lengths and arrivals follow published averages, not one clinic’s records.</p></div>
+    <ul><li>No front-desk worker, clinician or patient has used it yet.</li><li>Staff time and costs are modeled, not measured.</li><li>Not connected to a real scheduling system; no real texts are sent.</li><li>No compliance or privacy review has been done.</li></ul>
+  </section>
+  <footer class="foot">Simulation, synthetic data. Costs and staff time are modeled.</footer>
+</main>
+
+<!-- ============================================================ TEST ACTORS -->
+<main id="view-actors" class="view" hidden aria-label="Test actors">
+  <div class="view-head">
+    <div class="eyebrow">Behind the scenes</div>
+    <h1>Test actors</h1>
+    <p class="lede">The simulated people who create each day. Each one is a persona prompt with habits, including mistakes on purpose. A fidelity check grades whether each one kept its habits, so the test stays realistic.</p>
+  </div>
+  <div id="agents"></div>
+  <footer class="foot">Simulation, synthetic data. Test actors and the product never share a prompt or an AI call.</footer>
+</main>
+
+<!-- ============================================================ RUN INSPECTOR -->
+<main id="view-inspect" class="view" hidden aria-label="Run inspector">
+  <div class="view-head">
+    <div class="eyebrow">Behind the scenes</div>
+    <h1>Run inspector</h1>
+    <p class="lede">The raw view for checking the work: every check for this day with its evidence, a timeline of what each patient was told against what happened, and the full logs. Click a failure to jump to that minute.</p>
+  </div>
+  <div class="tabs" role="tablist">
+    <button role="tab" data-tab="live" class="on">This day</button>
+    <button role="tab" data-tab="suite">Last test run (all days)</button>
+  </div>
+  <div id="tab-live">
+    <section class="card">
+      <div class="h3">Checks for this day <span id="score-note" class="muted small"></span></div>
       <div id="scorecard"></div>
-      <h3>Timeline: told vs actual</h3>
+    </section>
+    <section class="card">
+      <div class="h3">Timeline: what each patient was told vs what happened</div>
       <div class="legend" id="legend"></div>
       <div id="timeline" class="timeline"></div>
       <div id="tip" class="tip" hidden></div>
-      <div class="cols2 obs-bottom">
-        <div><h3 id="detail-title">Patient log</h3><div id="detail" class="log"><p class="muted">Click a row in the timeline or a failure in the scorecard.</p></div></div>
-        <div><h3>Decisions and reasons</h3><div id="decisions" class="log"></div></div>
-      </div>
+    </section>
+    <div class="cols2">
+      <section class="card"><div class="h3" id="detail-title">Patient log</div><div id="detail" class="log"><p class="muted">Click a row in the timeline or a failure above.</p></div></section>
+      <section class="card"><div class="h3">Decisions and reasons</div><div id="decisions" class="log"></div></section>
     </div>
-    <div id="tab-suite" hidden>
-      <div id="suite"></div>
-    </div>
-    <div id="tab-agents" hidden>
-      <div id="agents"></div>
-    </div>
-  </section>
-
-  <section class="pane finance-pane" aria-label="Finance dashboard">
-    <h2>Finance dashboard <span class="sim-label">Simulation, synthetic data</span> <span class="modeled">Money and staff time are modeled</span></h2>
-    <div id="finance"></div>
-    <h3>Trend across saved suites <span class="muted" id="trend-note"></span></h3>
-    <div id="trend"></div>
-  </section>
+  </div>
+  <div id="tab-suite" hidden><section class="card"><div id="suite"></div></section></div>
+  <footer class="foot">Simulation, synthetic data.</footer>
 </main>
+
+</div>
 <script src="app.js"></script>
 </body>
 </html>

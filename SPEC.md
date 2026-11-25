@@ -200,6 +200,15 @@ Build the evals before the agents, so every later milestone is judged by the sam
 - **Leaves out:** LLM product agents; product logic is still plain code.
 - **You see:** the same screens with messier, more realistic behavior.
 
+### Milestone 4.5: New look
+
+**Goal:** make the demo readable for a lay audience (reviewers, hiring managers) before the product agents arrive.
+
+- **Build:** rebuild the four panes in the approved design: clinic view (patient phone, desk tablet, plain-language caption, "behind the scenes at this moment" strip); Behind the scenes screens for how it connects (clickable agent flow; product AI agents not built yet shown as coming in Milestone 5), promises and goals (gates as safety promises, evals as goal bars, failures visible, test IDs behind a toggle), and results (finance with notes on what is built into the simulation). Labels distinguish "Simulated person (test actor)" from "Product AI agent".
+- **Done when:** same features, same evals, no new product logic: the UI self-test and browser click test pass on the new UI, every screen works at desktop and phone width, and the eval suite reports no score change.
+- **Leaves out:** the guided 10-minute presenting run and the "what the evals caught" panel (Milestone 6).
+- **You see:** the same runs in the new design.
+
 ### Milestone 5: AI product agents
 
 **Goal:** add the agents the demo is showing off, each held to its autonomy level.
