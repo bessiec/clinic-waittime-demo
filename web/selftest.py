@@ -18,7 +18,7 @@ from clinic.urgent import URGENT_TEXT
 from evals.common import open_run
 from evals.runner import grade
 from evals.scored import e10_finance_reconciles
-from .server import LABEL, LIVE, STATIC, make_server, suites_summary
+from .server import LABEL, STATIC, Handler, make_server, suites_summary
 
 TABLES = ["truth", "events", "estimates", "views", "messages", "verbal_estimates", "proposals",
           "approvals", "queue_changes", "notes", "survey", "human_actions"]
@@ -36,6 +36,7 @@ class Check:
 
 def main(cfg):
     srv = make_server(cfg, port=0)
+    LIVE = Handler.session.live   # this server's own run folder
     port = srv.server_address[1]
     threading.Thread(target=srv.serve_forever, daemon=True).start()
     base = f"http://127.0.0.1:{port}"

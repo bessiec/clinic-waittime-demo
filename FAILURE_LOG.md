@@ -225,3 +225,10 @@ Cause: the Milestone 4.5 caption code read the front-desk data before the day st
 sends none. The click test missed it because the page catches the error and prints it in the error line
 instead of throwing. Fix: a "loaded, press Play" caption until the day starts, and the click test's start
 check now also requires an empty error line (it fails on the old code with this exact message).
+
+**2026-11-24 · Web UI (caught by Bessie, not by a test) · "database disk image is malformed".**
+Cause: every web server wrote live runs to the same file, `runs/live/<scenario>_s<seed>.sqlite`, and starting
+a day deletes and rebuilds it. With two servers up (port 8000 and a second one on 8001), plus test servers,
+one server rebuilt the file while another still had it open. Fix: each server process now keeps its live runs
+in its own folder, `runs/live/p<process id>/`, and removes folders left by stopped servers at startup.
+Checked by starting and finishing the same day on two servers at once: both finished, no error.

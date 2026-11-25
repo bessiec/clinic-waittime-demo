@@ -7,6 +7,8 @@ One Session holds one run. A background ticker steps the director at the
 chosen speed; request handlers read the store under the same lock. Panes are
 computed from the store at a minute t (live, scrubbed, or a saved run)."""
 import json
+import os
+import shutil
 import threading
 import time
 import traceback
@@ -32,12 +34,36 @@ from . import panes
 
 STATIC = Path(__file__).parent / "static"
 LIVE = ROOT / "runs" / "live"
+
+
+def _pid_alive(pid):
+    try:
+        os.kill(pid, 0)
+        return True
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True
+
+
+def live_dir():
+    """Each server process gets its own folder for live run files. Starting a day deletes and rebuilds
+    its run file, so two servers (or a test server) sharing one folder corrupted each other's open file
+    ("database disk image is malformed"). Folders left by servers that have stopped are removed."""
+    LIVE.mkdir(parents=True, exist_ok=True)
+    for d in LIVE.iterdir():
+        if d.is_dir() and d.name.startswith("p") and d.name[1:].isdigit() and not _pid_alive(int(d.name[1:])):
+            shutil.rmtree(d, ignore_errors=True)
+    mine = LIVE / f"p{os.getpid()}"
+    mine.mkdir(exist_ok=True)
+    return mine
 LABEL = "Simulation, synthetic data"
 
 
 class Session:
     def __init__(self, cfg):
         self.cfg = cfg
+        self.live = live_dir()
         self.lock = threading.RLock()
         self.director = None
         self.store = None
@@ -75,11 +101,10 @@ class Session:
             if scenario not in SCENARIOS:
                 raise ValueError(f"unknown scenario {scenario}")
             self.running = False
-            LIVE.mkdir(parents=True, exist_ok=True)
-            base_path = LIVE / f"{scenario}_s{seed}_baseline.sqlite"
+            base_path = self.live / f"{scenario}_s{seed}_baseline.sqlite"
             Director(scenario, seed, self.cfg, str(base_path), product=False).build().run()
             self.baseline = open_run(str(base_path))
-            self.director = Director(scenario, seed, self.cfg, str(LIVE / f"{scenario}_s{seed}.sqlite"),
+            self.director = Director(scenario, seed, self.cfg, str(self.live / f"{scenario}_s{seed}.sqlite"),
                                      approver=approver, human_script=script, **actor_kw).build().start()
             self.store = self.director.store
             self.mode = "live"
@@ -103,8 +128,7 @@ class Session:
             self.store = probe
             bpath = SUITES / suite / f"{scenario}_s{seed}_baseline.sqlite"
             if not bpath.exists():
-                LIVE.mkdir(parents=True, exist_ok=True)
-                bpath = LIVE / f"{scenario}_s{seed}_baseline.sqlite"
+                bpath = self.live / f"{scenario}_s{seed}_baseline.sqlite"
                 Director(scenario, seed, self.cfg, str(bpath), product=False).build().run()
             self.baseline = open_run(str(bpath))
             self.mode = "review"
