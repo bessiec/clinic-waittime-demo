@@ -30,7 +30,9 @@ await sleep(1500);
 // Start a human-approval run of normal_day from the control bar
 await js(`document.getElementById("scenario").value="normal_day"; document.getElementById("seed").value="42"; document.getElementById("approver").value="human"; document.getElementById("start").click(); true`);
 await sleep(1500);
-check("Start button loads a run", (await js(`document.getElementById("source").textContent`)).includes("normal_day, seed 42, approvals by you"));
+// Loaded but not started: the panes must render without an error (the error line catches what poll() swallows)
+const startErr = await js(`document.getElementById("err").textContent`);
+check("Start button loads a run, with no error before the day starts", (await js(`document.getElementById("source").textContent`)).includes("normal_day, seed 42, approvals by you") && !startErr, startErr || "");
 // Step until a proposal card appears
 let cards = 0;
 for (let i = 0; i < 80 && !cards; i++) {

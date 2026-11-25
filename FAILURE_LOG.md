@@ -219,3 +219,9 @@ problem. At 15:03–15:06 the page showed a range while the recorded queue said 
 11–15. The data was 1–4 min old, but Kim had skipped entries, so it was incomplete. The data-quality
 check only looks at data age. The better-behaved Kim makes this worse: she keeps entering a few things,
 so the data never looks old. To fix in Milestone 5 (data-quality agent).
+
+**2026-11-24 · Web UI (caught by Bessie, not by a test) · "Cannot read properties of null (reading 'decided')".**
+Cause: the Milestone 4.5 caption code read the front-desk data before the day started, when the server
+sends none. The click test missed it because the page catches the error and prints it in the error line
+instead of throwing. Fix: a "loaded, press Play" caption until the day starts, and the click test's start
+check now also requires an empty error line (it fails on the old code with this exact message).

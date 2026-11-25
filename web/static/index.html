@@ -33,11 +33,29 @@
 </header>
 
 <section class="runbar card" aria-label="Run controls">
-  <div class="runbar-row">
-    <div class="runbar-start">
-      <button id="start" class="btn primary" title="Any scenario and seed. The front desk and patients follow rules written in code. Computed live, free.">Run a day (rule-based people)</button>
-      <button id="demo" class="btn" title="Play the recorded day where AI agents play Kim and the patients. Replayed from the recording: no model calls, no cost.">Watch AI demo day (AI people, recorded)</button>
+  <div class="paths">
+    <div class="path">
+      <div class="path-head"><span class="stepnum" aria-hidden="true">1</span><div>
+        <h2 class="path-title">Watch the demo</h2>
+        <p class="path-sub">See how a clinic afternoon runs. AI plays Kim at the front desk and the patients. It plays a recording, so it’s free and makes no new AI calls.</p></div></div>
+      <div class="path-go"><button id="demo" class="btn primary">Watch the demo</button></div>
     </div>
+    <div class="path">
+      <div class="path-head"><span class="stepnum" aria-hidden="true">2</span><div>
+        <h2 class="path-title">Run your own simulation</h2>
+        <p class="path-sub">Pick a kind of day and run it yourself. The front desk and patients follow written rules, computed live and free. Choose “me” to approve changes to the line yourself.</p></div></div>
+      <div class="path-go path-form">
+        <label>Kind of day <select id="scenario"></select></label>
+        <label>Seed <input id="seed" type="number" min="0" step="1" title="Same seed, same day: every run replays exactly"></label>
+        <label>Approvals by <select id="approver">
+          <option value="persona">the desk persona</option>
+          <option value="human">me</option>
+        </select></label>
+        <button id="start" class="btn">Run simulation</button>
+      </div>
+    </div>
+  </div>
+  <div class="runbar-row playbar">
     <div class="runbar-play" role="toolbar" aria-label="Playback">
       <button id="play" class="btn" disabled>Play</button>
       <button id="step" class="btn" disabled title="Advance one simulated minute">Step</button>
@@ -45,26 +63,11 @@
       <span class="seg" id="speeds" role="group" aria-label="Speed"></span>
       <span class="clock mono" id="clock">no run</span>
     </div>
-  </div>
-  <p class="mode-hint">Both play a clinic day with the same product. <b>Run a day</b>: pick any scenario below; the front desk and patients follow written rules. <b>AI demo day</b>: one recorded day where AI agents play Kim and the patients from their persona prompts; replayed free, with no new AI calls.</p>
-  <div class="runbar-row">
     <div class="scrub">
       <input id="scrub" type="range" min="0" max="0" value="0" disabled aria-label="Look back to a minute">
       <button id="live" class="btn small" disabled>Back to now</button>
-      <button id="replay" class="btn small" disabled title="Same scenario, seed and your logged staff actions: should replay identically">Replay</button>
+      <button id="replay" class="btn small" disabled title="Same kind of day, seed and your logged staff actions: should replay identically">Replay</button>
     </div>
-    <details class="advanced">
-      <summary>Advanced: scenario, seed, approvals</summary>
-      <div class="advanced-body">
-        <label>Scenario <select id="scenario"></select></label>
-        <label>Seed <input id="seed" type="number" min="0" step="1"></label>
-        <label>Approvals by <select id="approver">
-          <option value="persona">desk persona</option>
-          <option value="human">me (staff console)</option>
-        </select></label>
-        <span class="small muted">Then press “Run a day”.</span>
-      </div>
-    </details>
   </div>
   <div class="runbar-status"><span id="source" class="muted small"></span> <span id="err" class="err" role="alert"></span></div>
 </section>
@@ -74,8 +77,8 @@
   <div class="stage">
     <article class="caption" aria-live="polite">
       <div class="cap-time mono"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg><span id="cap-time">Not started</span></div>
-      <h1 id="cap-title">Press a button above to start a day</h1>
-      <p id="cap-body">“Run a day” plays any scenario with rule-based people. “Watch AI demo day” replays the day AI agents played Kim and the patients.</p>
+      <h1 id="cap-title">Pick step 1 or 2 above to start</h1>
+      <p id="cap-body">Start with step 1, “Watch the demo”, to see a recorded afternoon. Then try step 2 to run your own simulation.</p>
       <div class="cap-why"><div class="eyebrow">Why it matters</div><p id="cap-why">Everything you see is a simulation with synthetic people. The checks behind it are real.</p></div>
     </article>
 

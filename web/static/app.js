@@ -94,7 +94,12 @@ $("play").onclick = () => control({ action: ui.last?.control?.running ? "pause" 
 $("step").onclick = () => { ui.at = null; control({ action: "step" }); };
 $("toend").onclick = () => { ui.at = null; control({ action: "to_end" }); };
 $("replay").onclick = () => { ui.at = null; control({ action: "replay" }); };
-$("demo").onclick = () => { ui.at = null; ui.selected = null; ui.focusT = null; $("approver").value = "persona"; control({ action: "start_demo" }); };
+$("demo").onclick = async () => {   // step 1: load the recording and start playing it straight away
+  ui.at = null; ui.selected = null; ui.focusT = null;
+  showView("clinic");
+  await control({ action: "start_demo" });
+  if (!$("err").textContent) control({ action: "play" });
+};
 $("live").onclick = () => { ui.at = null; ui.focusT = null; poll(true); };
 $("scrub").oninput = (e) => { ui.at = +e.target.value; poll(true); };
 $("pid").onchange = (e) => { ui.pid = e.target.value; poll(true); };
@@ -115,6 +120,7 @@ function renderControl(s) {
   $("clock").textContent = c ? `${c.time}${c.done ? " · day over" : ""}${c.following ? "" : " · looking back"}` : "no run";
   $("play").disabled = !c || c.mode !== "live" || c.done;
   $("play").textContent = c && c.running ? "Pause" : "Play";
+  $("play").classList.toggle("primary", !!c && c.mode === "live" && !c.running && !c.done);   // the next thing to press
   $("step").disabled = $("toend").disabled = !c || c.mode !== "live" || c.done;
   $("replay").disabled = !c || c.mode !== "live";
   document.querySelectorAll("#speeds button").forEach((b) => b.classList.toggle("on", b.dataset.speed === s.meta.speed));
@@ -132,7 +138,7 @@ function renderControl(s) {
   }
   $("source").textContent = c.mode === "review"
     ? `Saved run from suite ${src.suite}: ${src.scenario}, seed ${src.seed} (read only)`
-    : `${src.demo ? "AI demo day (AI people, recorded, replayed free): " : "Rule-based people: "}${src.scenario}, seed ${src.seed}, approvals by ${src.approver === "human" ? "you" : "desk persona"}${src.replay ? `, replaying ${src.replayed_actions} logged staff action(s)` : ""}`;
+    : `${src.demo ? "Demo (AI people, recorded, replayed free): " : "Your simulation (rule-based people): "}${src.scenario}, seed ${src.seed}, approvals by ${src.approver === "human" ? "you" : "desk persona"}${src.replay ? `, replaying ${src.replayed_actions} logged staff action(s)` : ""}`;
   $("brand-sub").textContent = `A simulated afternoon at a small clinic · ${scName(src.scenario)}${ui.desk ? ` · ${ui.desk.split(",")[0]} on the front desk` : ""}${src.demo ? " · AI people (recorded)" : ""}`;
 }
 async function loadDesk() {
@@ -217,7 +223,7 @@ function renderStaff(st, c) {
         <div class="small">${esc(i.reason)}</div>
         ${c.human_approver && c.can_act ? `<label class="small" style="font-weight:600">Your reason (required, one line)</label><div class="row"><input placeholder="One-line reason" aria-label="Reason">
           <button data-d="approved">Approve</button><button data-d="rejected">Reject</button></div>`
-        : `<div class="small muted">${c.human_approver ? "Go back to now to decide." : "The desk persona decides this one. Under Advanced, choose “Approvals by: me” and run a day to decide yourself."}</div>`}
+        : `<div class="small muted">${c.human_approver ? "Go back to now to decide." : "The desk persona decides this one. To decide yourself, set “Approvals by” to “me” in step 2 and run a simulation."}</div>`}
         <div class="small muted">Suggestions can’t move anyone in line. Only staff can, with a logged reason.</div>
       </div>`).join("");
     $("inbox").querySelectorAll(".proposal button").forEach((b) => (b.onclick = () => {
@@ -254,9 +260,13 @@ function suiteGoal(id, sc) {
 }
 function moment(s) {
   const c = s.control, st = s.staff, o = s.observer, t = c.t, sc = c.source.scenario;
+  const S = (label, k) => ({ label, k });
+  if (!st) return { title: c.source.demo ? "The demo is loaded" : "Your simulation is loaded", gate: "G5", goal: null,
+    body: "The clinic hasn’t opened yet. Press Play to start the afternoon, or Step to go one minute at a time.",
+    why: "Every day starts from a seed, so the same day replays exactly.",
+    steps: [S("Day script sets up the afternoon", "rule")] };
   const desk = ui.desk ? ui.desk.split(",")[0] : "The front desk";
   const actor = c.source.demo ? "AI test actor" : "test actor";
-  const S = (label, k) => ({ label, k });
   const waitingTrue = o.lanes.filter((l) => l.checkin !== null && l.checkin <= t && (l.roomed === null || l.roomed > t) && (l.left === null || l.left > t)).length;
   const urgent = o.lanes.filter((l) => l.handoff !== null && l.handoff <= t && t - l.handoff <= 12).sort((a, b) => b.handoff - a.handoff)[0];
   const recentDec = st.decided.filter((d) => t - d.t <= 6).slice(-1)[0];
@@ -318,12 +328,12 @@ const NODES = {
     job: "Four simulated receptionists with real-world habits: Kim stops updating when swamped, Luis batches updates and guesses from headcount, Pat guesses erratically, Dana is accurate.",
     autonomy: "Acts freely inside the simulation", built: "Two ways: written rules, or an AI persona prompt (Sonnet through Claude Code)",
     evals: "Persona fidelity: compares what each one did with the habits its persona describes",
-    today: "Built. Rule-based on every test day; AI personas on the recorded AI demo day. See Test actors for prompts and results." },
+    today: "Built. Rule-based on every test day; AI personas in the recorded demo. See Test actors for prompts and results." },
   patients: { lane: "world", kind: "sim", name: "Patients", sub: "7 personas + walk-ins",
     job: "Simulated patients who arrive early, late or not at all, text questions, write in Spanish, or mention urgent symptoms.",
     autonomy: "Acts freely inside the simulation", built: "Two ways: written rules, or an AI persona prompt for the 7 named patients",
     evals: "Persona fidelity, and each persona is also a named test moment (Tom, Rosa, Mr. Chen…)",
-    today: "Built. The walk-in crowd stays rule-based even on the AI demo day." },
+    today: "Built. The walk-in crowd stays rule-based even in the demo." },
   store: { lane: "product", kind: "rule", name: "Event log", sub: "single source of truth",
     job: "Every check-in, status change, estimate, message and decision is written here with a timestamp. The screens and the checks all read from it.",
     autonomy: "Not applicable", built: "Plain code (SQLite)", evals: "Results totals must match it exactly", today: "Built." },
@@ -361,7 +371,7 @@ const NODES = {
   approve: { lane: "side", kind: "staff", name: "Staff approves", sub: "with a one-line reason",
     job: "The front desk, or you running the demo, approves or rejects each suggestion and types why.",
     autonomy: "People decide", built: "Staff console", evals: "Every change to the line must have a logged approval",
-    today: "Built. Under Advanced, set “Approvals by” to you, then run a day." },
+    today: "Built. In step 2, set “Approvals by” to “me”, then run a simulation." },
   queue: { lane: "side", kind: "rule", name: "Line updated", sub: "only after approval",
     job: "The order of the line changes only after an approval is logged. Other patients’ ranges update on the next refresh.",
     autonomy: "Not applicable", built: "Plain code", evals: "Nothing moves without a logged approval", today: "Built." },
@@ -640,7 +650,7 @@ async function loadAgents() {
       <pre class="prompt">${esc(open.prompt)}</pre>
       ${open.recent.length ? `<h4>Latest decisions in this day</h4>${open.recent.map((c) => `<details><summary>${esc(c.time)} · ${esc(c.role)} ${c.ok ? "" : `<span class="pill bad">fell back: ${esc(c.error || "invalid")}</span>`}</summary>
         <p class="small muted">What it saw</p><pre class="prompt">${esc(c.prompt)}</pre><p class="small muted">What it decided</p><pre class="prompt">${esc(c.reply || "")}</pre></details>`).join("")}`
-        : `<p class="small muted">${a.llm ? "No decisions yet at this minute." : "This day uses rule-based people, so there are no AI decisions to show. Press “Watch AI demo day (AI people, recorded)” to see the AI agents."}</p>`}
+        : `<p class="small muted">${a.llm ? "No decisions yet at this minute." : "This day uses rule-based people, so there are no AI decisions to show. Press “Watch the demo” (step 1) to see the AI agents."}</p>`}
     </section>` : "";
   $("agents").innerHTML = `<section class="card"><p style="margin:0"><strong>Who plays the people in this day:</strong> ${esc(a.mode)}${a.llm ? ` · model: ${esc(a.model)} through Claude Code on a subscription ($0 billed)` : ""}.</p>
     <p class="small muted" style="margin:6px 0 0">The product (estimator, safety rules, texts) is plain code and never shares a prompt or an AI call with the test actors. Click a persona to read its prompt and what it decided.</p></section>

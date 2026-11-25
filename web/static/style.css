@@ -130,11 +130,17 @@ code, pre { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 1
 .scrub { flex: 1 1 360px; }
 .scrub input[type=range] { flex: 1 1 200px; accent-color: var(--accent); min-width: 140px; }
 .clock { font-weight: 700; padding: 0 6px; }
-.mode-hint { margin: 0; font-size: 13px; color: var(--muted); max-width: 120ch; }
-.advanced summary { cursor: pointer; font-weight: 600; font-size: 14px; color: var(--muted); padding: 8px 12px; border: 1px solid var(--line-2); border-radius: 12px; list-style: none; }
-.advanced summary::-webkit-details-marker { display: none; }
-.advanced[open] summary { background: var(--surface-2); }
-.advanced-body { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; padding: 10px 2px 0; font-size: 14px; }
+.paths { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 12px; }
+.path { display: flex; flex-direction: column; justify-content: space-between; gap: 12px; padding: 14px 16px; border: 1px solid var(--line-2); border-radius: 16px; background: var(--surface-2); }
+.path-head { display: flex; gap: 12px; align-items: flex-start; }
+.stepnum { flex: none; width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; font-weight: 800; font-size: 15px; background: var(--accent-soft); color: var(--accent-soft-ink); border: 1px solid var(--accent-line); }
+.path-title { margin: 0; font-size: 17px; font-weight: 800; }
+.path-sub { margin: 4px 0 0; font-size: 13.5px; color: var(--muted); max-width: 62ch; }
+.path-go { display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: flex-end; }
+.path-form label { display: flex; flex-direction: column; gap: 4px; font-size: 12.5px; font-weight: 600; color: var(--muted); }
+.path-form select, .path-form input { min-height: 40px; }
+.path-form input[type=number] { width: 6.5em; }
+.playbar { padding-top: 2px; }
 .runbar-status:empty { display: none; }
 
 /* clinic stage */
