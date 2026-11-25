@@ -72,6 +72,7 @@ code, pre { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 1
 .muted { color: var(--muted); }
 .small { font-size: 13px; }
 .err { color: var(--crit-ink); font-weight: 600; }
+.err:not(:empty) { display: block; margin-top: 6px; padding: 8px 12px; border-radius: 10px; background: var(--crit-soft, transparent); border: 1px solid var(--crit-ink); }
 .note { font-size: 13px; color: var(--muted); margin: 8px 0 0; }
 .wrap { max-width: 1376px; margin: 0 auto; padding: 20px 16px 48px; display: flex; flex-direction: column; gap: 18px; }
 @media (min-width: 720px) { .wrap { padding: 24px 32px 48px; } }

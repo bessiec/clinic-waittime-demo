@@ -69,7 +69,13 @@ async function api(path, body) {
 }
 async function control(body) {
   try { $("err").textContent = ""; await api("/api/control", body); await poll(true); }
-  catch (e) { $("err").textContent = e.message; }
+  catch (e) {
+    // A server started before this page was updated rejects newer buttons: say how to fix it.
+    $("err").textContent = /unknown action/.test(e.message)
+      ? "This server is running older code than the page. Stop it (Ctrl+C in its terminal) and run python3 -m web again."
+      : e.message;
+    $("err").scrollIntoView({ block: "nearest" });
+  }
 }
 async function suites() {
   if (!ui.suites) { try { ui.suites = await api("/api/suites"); } catch { ui.suites = []; } }
