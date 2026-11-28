@@ -1,0 +1,66 @@
+[
+  {
+    "date": "2026-11-10",
+    "check": "Checking the checker",
+    "status": "fixed",
+    "title": "A safety check flagged every honest “call the clinic” page as a failure",
+    "what": "The check for “no wait time on stale data” mistook the required “Updated 16 min ago” line for a wait time, so all 14 honest declines on Kim’s day counted as leaks. The product was right; the check was wrong.",
+    "fix": "The check now ignores the “updated” line. Checks get tested too."
+  },
+  {
+    "date": "2026-11-10",
+    "check": "The range covers the real wait",
+    "status": "fixed",
+    "title": "Walk-in ranges were too optimistic: only 59% of waits fell inside",
+    "what": "The estimator didn’t count scheduled patients who would be taken ahead of a walk-in. One walk-in was told 20–50 minutes and waited 53 while three booked patients went first.",
+    "fix": "The estimator now plays the line forward using the clinic’s own ordering rule. Coverage rose to 71%, and is 84% or more on tuned days today."
+  },
+  {
+    "date": "2026-11-13",
+    "check": "No wait time on stale data",
+    "status": "fixed",
+    "title": "A safety promise passed on 6 of 20 days without ever being tested",
+    "what": "On those days the rush never got big enough for Kim to stop updating, so there was no stale data to handle. A pass that never ran proves nothing.",
+    "fix": "Kim’s day now includes a 3 PM rush, and on that day the check fails if the situation never happens."
+  },
+  {
+    "date": "2026-11-13",
+    "check": "Comparing with the last test run",
+    "status": "fixed",
+    "title": "A small bug fix quietly changed every simulated day",
+    "what": "Fixing a crash (the simulation ran out of patient names) changed the order of random choices, so every score moved even though nothing about the product had changed. The comparison with the last test run flagged it at once.",
+    "fix": "The fix was redone so every day plays out exactly as before."
+  },
+  {
+    "date": "2026-11-13",
+    "check": "Held-back test day",
+    "status": "fixed",
+    "title": "On an understaffed day, the estimator forgot real patients",
+    "what": "It treated anyone waiting over 2 hours as gone. With one provider, real waits passed 4 hours, so the page stopped counting people who were still there. Stopping at the right times was correct only 5% of the time.",
+    "fix": "Patients are dropped only when someone who came after them has been seen. That check rose to 100%. Fixing it used up this day as a clean held-back test, which the Evals screen says openly."
+  },
+  {
+    "date": "2026-11-20",
+    "check": "Test actors keep their habits",
+    "status": "fixed",
+    "title": "The AI playing Kim went quiet for 170 minutes instead of 20–30",
+    "what": "Her persona says she steps away once or twice when swamped. The AI stopped entering anything for the rest of the afternoon, and the check missed it because it had no upper limit. After a fix she stepped away 4 times, because nothing told her how often she already had.",
+    "fix": "The check now caps a quiet stretch at 45 minutes, and Kim’s prompt shows how many times she has stepped away. The third recording behaves like the persona."
+  },
+  {
+    "date": "2026-11-20",
+    "check": "Stops showing a time when it should",
+    "status": "open",
+    "title": "The page shows a time from data that’s fresh but incomplete",
+    "what": "When Kim skips some entries but keeps making others, the data looks recent, so the page keeps showing a range. At 3:04 PM it showed a time while 11 to 15 people were really waiting and the desk had recorded 4. On Kim’s day the page stops when it should only 42% of the time, against a 90% goal.",
+    "fix": "Planned: the data-quality agent will notice incomplete entries, not just old ones."
+  },
+  {
+    "date": "2026-11-24",
+    "check": "Found by hand, not by a test",
+    "status": "fixed",
+    "title": "Two bugs the automated tests missed",
+    "what": "Clicking around the new screens found a crash before the day started, and a corrupted run file when two copies of the app ran at once. The page had shown the crash as a small error message, so the click test never noticed.",
+    "fix": "Both fixed, and the click test now fails on any error message, so this kind of bug can’t slip through again."
+  }
+]

@@ -80,6 +80,13 @@ const shotTitle = await js(`document.getElementById("detail-title").textContent`
 console.log("   after suite click, patient log:", shotTitle);
 const shot = await send("Page.captureScreenshot", { format: "png" });
 (await import("node:fs")).writeFileSync(process.argv[3], Buffer.from(shot.result.data, "base64"));
+// Evals screen: a goal opens its eval card, and the card's example opens that moment in the inspector
+await js(`location.hash = "#evals"; true`); await sleep(1500);
+await js(`(() => { const b = [...document.querySelectorAll("#promises .goal")].find((x) => x.querySelector(".pill.bad")); b && b.click(); return true; })()`); await sleep(800);
+const card = await js(`document.querySelector(".evcard")?.innerText || ""`);
+await js(`document.querySelector(".evcard [data-open]")?.click(); true`); await sleep(2500);
+const landed = await js(`ui.view === "inspect" && document.getElementById("source").textContent.startsWith("Saved run from suite")`);
+check("Evals: a goal opens its card, and its example opens that moment in the inspector", card.includes("How it’s graded") && landed, card.slice(0, 60).replace(/\n/g, " "));
 check("no JavaScript errors", errors.length === 0, errors.join("; "));
 console.log(`\nbrowser click test: ${results.filter(Boolean).length}/${results.length} pass`);
 ws.close(); proc.kill();

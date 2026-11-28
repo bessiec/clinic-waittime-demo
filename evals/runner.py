@@ -28,13 +28,13 @@ from .common import Result, open_run
 
 GATES = ["G1", "G2", "G3", "G4", "G5"]
 PLAN = {
-    "normal_day":           GATES + ["E1", "E2", "E4", "E9", "E10", "F1"],
-    "kim_goes_quiet":       ["G1", "G2!", "G3", "G4", "G5", "E4", "E9", "E10", "F1"],
-    "walkin_surge":         GATES + ["E1", "E2i", "E3", "E4", "E10", "F1"],
-    "luis_day":             GATES + ["E4", "E5", "E10", "F1"],
-    "pat_day":              GATES + ["E4", "E5", "E10", "F1"],
-    "understaffed_opening": GATES + ["E1", "E3", "E4", "E10", "F1"],
-    "luis_surge":           GATES + ["E1", "E3", "E4", "E5", "E10", "F1"],
+    "normal_day":           GATES + ["E1", "E2", "E4", "E9", "E10", "F1", "E11"],
+    "kim_goes_quiet":       ["G1", "G2!", "G3", "G4", "G5", "E4", "E9", "E10", "F1", "E11"],
+    "walkin_surge":         GATES + ["E1", "E2i", "E3", "E4", "E10", "F1", "E11"],
+    "luis_day":             GATES + ["E4", "E5", "E10", "F1", "E11"],
+    "pat_day":              GATES + ["E4", "E5", "E10", "F1", "E11"],
+    "understaffed_opening": GATES + ["E1", "E3", "E4", "E10", "F1", "E11"],
+    "luis_surge":           GATES + ["E1", "E3", "E4", "E5", "E10", "F1", "E11"],
 }
 EXACT = ("G1", "G2", "G3", "G4", "G5", "E9", "E10", "F1")   # pass/fail per seed, pooled as "n/N seeds pass"
 GRADERS = {
@@ -53,6 +53,7 @@ GRADERS = {
     "E9": scored.e9_chen_clock,
     "E10": scored.e10_finance_reconciles,
     "F1": fidelity.f1_persona_fidelity,
+    "E11": scored.e11_survey_tracks,
 }
 SUITES = ROOT / "runs" / "suites"
 
@@ -147,6 +148,13 @@ def pool(check_id, rs, cfg):
                 "value": min(x for x in (ra, rb) if x is not None) if (ra is not None or rb is not None) else None,
                 "passed": passed,
                 "detail": "minutes open: declined when it should / showed a range when it should"}
+    elif check_id == "E11":   # report only: pool every answer, then one correlation
+        pairs = [p for r in rs for p in r.pool["pairs"]]
+        c = scored._corr(pairs)
+        ok = c is not None and len(pairs) >= ec["survey_min_group"]
+        row |= {"score": f"r = {-c:.2f} pooled ({len(pairs)} answers)" if ok else f"too few answers ({len(pairs)})",
+                "value": -c if ok else None, "passed": None,
+                "detail": "minutes past the top of the range vs the \"accurate\" answer; simulated answers come from a formula"}
     if vals:
         worst = (max if check_id in ("E2", "E3") else min)(vals)
         row["worst_seed"] = worst[1]

@@ -22,10 +22,10 @@ Open http://127.0.0.1:8000 and press **Watch the demo**. It plays a recorded aft
 
 - **Clinic view:** the patient's phone, the front desk's screen and a plain-language caption of what's happening and why, minute by minute.
 - **How it connects:** each part of the system, whether it's AI or plain code, and what it's allowed to do.
-- **Promises and goals:** the five safety promises and the accuracy goals, with results from the latest test run.
+- **Evals:** the five safety promises and the accuracy goals from the latest test run. Click any one to see how it's tested, a real example you can open at that minute, and its score over time. Below that, "What the evals caught": real problems found while building this.
 - **Results:** wait accuracy, patient walk-aways, a simulated satisfaction survey and modeled costs.
 - **Test actors:** the AI personas' prompts and whether they behaved like their descriptions.
-- **Run inspector:** every patient's timeline; click any failed check to see the moment it happened.
+- **Run inspector** (from the Evals screen): every patient's timeline and the full logs for one day.
 
 ## Run the evals
 

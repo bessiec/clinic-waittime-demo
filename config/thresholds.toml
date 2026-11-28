@@ -118,8 +118,8 @@ E5_beat_rate = 0.70              # SPEC [70%] (M2)
 E6_caught = 0.90                 # SPEC [90%] (M5)
 E6_false_alarm = 0.10            # SPEC [10%] (M5)
 E7_grade = 6                     # SPEC [6]   (M5)
-E8_reason_match = 0.90           # SPEC [90%] (M5)
-E11_correlation = 0.5            # SPEC [0.5] (M5)
+# E8 is a code check since 2026-11-27: every agent decision has a logged reason (100%); no threshold
+E11_correlation = 0.5            # SPEC [0.5]: pass/fail only with real survey answers; reported in the simulation
 survey_min_group = 10            # SPEC [10]  (M3)
 holdout_scenarios = 2            # SPEC [2]   (M2)
 X4_recover_refreshes = 1         # SPEC [1]   (M5)

@@ -305,3 +305,34 @@ def e10_finance_reconciles(st, cfg, shown=None, baseline=None):
     n = len(finance.COUNT_KEYS) + len(want)
     return Result("E10", sc, f"{n - len(ev)}/{n} figures match the logs", "exact match", not ev,
                   f"{exp['checked_in']} patients, {exp['messages']} texts, {exp['survey_n']} survey answers", ev)
+
+
+def _corr(pairs):
+    """Pearson correlation of (x, y) pairs; None when either side doesn't vary."""
+    if len(pairs) < 2:
+        return None
+    xs, ys = [p[0] for p in pairs], [p[1] for p in pairs]
+    mx, my = statistics.fmean(xs), statistics.fmean(ys)
+    sxy = sum((x - mx) * (y - my) for x, y in pairs)
+    sxx = sum((x - mx) ** 2 for x in xs)
+    syy = sum((y - my) ** 2 for y in ys)
+    return sxy / (sxx * syy) ** 0.5 if sxx and syy else None
+
+
+def e11_survey_tracks(st, cfg):
+    """REPORT ONLY in the simulation (SPEC E11, 2026-11-27). Do patients' "was the estimate accurate?"
+    answers drop as their wait runs past the top of the range they were shown? Score = minus the
+    correlation between minutes past the top and the answer, so higher means the answers track
+    what happened. Simulated answers come from a formula (or AI patients), so this can't fail for a
+    real reason; with real survey answers it becomes pass/fail at E11_correlation."""
+    sc = run_info(st)["scenario"]
+    ec = cfg["evals"]
+    pairs = [(max(0, r["waited"] - r["told_high"]), r["accurate"]) for r in
+             st.rows("SELECT waited, told_high, accurate FROM survey WHERE told_status='range' AND told_high IS NOT NULL")]
+    r = _corr(pairs)
+    small = len(pairs) < ec["survey_min_group"]
+    score = (f"too few answers ({len(pairs)})" if small or r is None
+             else f"r = {-r:.2f} ({len(pairs)} answers)")
+    return Result("E11", sc, score, f"≥ {ec['E11_correlation']} with real answers (report only)", None,
+                  "minutes past the top of the range vs the \"accurate\" answer", value=None if small or r is None else -r,
+                  pool={"pairs": pairs})

@@ -25,10 +25,9 @@
     <a href="#clinic" data-view="clinic" class="on">Clinic view</a>
     <span class="views-sep">Behind the scenes</span>
     <a href="#flow" data-view="flow">How it connects</a>
-    <a href="#promises" data-view="promises">Promises and goals</a>
+    <a href="#evals" data-view="evals">Evals</a>
     <a href="#results" data-view="results">Results</a>
     <a href="#actors" data-view="actors">Test actors</a>
-    <a href="#inspect" data-view="inspect">Run inspector</a>
   </nav>
 </header>
 
@@ -180,16 +179,25 @@
 </main>
 
 <!-- ============================================================ PROMISES AND GOALS -->
-<main id="view-promises" class="view" hidden aria-label="Promises and goals">
+<main id="view-evals" class="view" hidden aria-label="Evals">
   <div class="view-head row-between">
     <div>
       <div class="eyebrow">Behind the scenes</div>
-      <h1>Promises and goals</h1>
-      <p class="lede" id="prom-lede">Every change is tested on many simulated days. Safety promises must hold on every single day. Accuracy goals are targets we report honestly, including the ones not met yet.</p>
+      <h1>Evals</h1>
+      <p class="lede" id="prom-lede">Every promise the product makes is an automated check, run on many simulated days. Safety promises must hold on every single day. Accuracy goals are reported honestly, including the ones not met yet.</p>
+      <p class="small muted">Click any promise or goal to see how it’s tested and a real example.</p>
     </div>
-    <button type="button" id="toggle-ids" class="btn ghost" aria-pressed="false" title="Show the check IDs used in SPEC.md (G1–G5, E1–E10, F1)">Show test IDs</button>
+    <div class="row" style="gap:8px;flex-wrap:wrap">
+      <a href="#inspect" data-view-link="inspect" class="btn ghost" style="text-decoration:none">Open the run inspector</a>
+      <button type="button" id="toggle-ids" class="btn ghost" aria-pressed="false" title="Show the check IDs used in SPEC.md">Show test IDs</button>
+    </div>
   </div>
   <div id="promises"></div>
+  <section class="card" aria-label="What the evals caught">
+    <div class="h2" style="margin:0">What the evals caught</div>
+    <p class="small muted" style="margin:4px 0 12px">Real problems found while building this, by the checks above and sometimes by hand. Every one is written up in the <a href="https://github.com/bessiec/clinic-waittime-demo/blob/main/FAILURE_LOG.md" target="_blank" rel="noopener">failure log</a> with its cause and fix.</p>
+    <div class="caught" id="caught"></div>
+  </section>
   <footer class="foot">Simulation, synthetic data. Scores describe the simulated clinic, not a real one.</footer>
 </main>
 

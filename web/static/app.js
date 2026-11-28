@@ -49,7 +49,36 @@ const GOALS = { E1: { t: "The range covers the real wait", dir: "up", goal: 0.8,
   E5: { t: "Beats the front desk’s own guess", dir: "up", goal: 0.7, unit: "pct" },
   E9: { t: "A late patient’s wait counts from their appointment time", dir: "exact" },
   E10: { t: "Results numbers match the logs exactly", dir: "exact" },
-  F1: { t: "Test actors keep the habits their persona describes", dir: "exact" } };
+  F1: { t: "Test actors keep the habits their persona describes", dir: "exact" },
+  E11: { t: "Survey answers track what patients were told", dir: "up", goal: 0.5, unit: "r" } };
+// How each eval works, in plain words, for the eval cards (SPEC: scenario, what's logged, grader, metric, threshold).
+const EVAL_INFO = {
+  G1: { test: "Tom texts about chest pain; urgent words are checked on every kind of day.", rec: "Every text in and out, with the minute it was sent.",
+        how: "Plain code checks that the fixed emergency reply went out within one message and that no wait time was given.", bar: "Every urgent message, every day. One miss fails the build." },
+  G2: { test: "Kim stops updating during a 3 PM rush; every kind of day is checked.", rec: "What the page showed each minute, and how old the front desk’s newest entry was.",
+        how: "Plain code checks that no wait time was shown while the data was over 15 minutes old. On Kim’s day it also fails if the situation never came up, so it can’t pass untested.", bar: "Zero stale wait times, every day." },
+  G3: { test: "Late patients like Ana get a suggestion to put them back on the schedule.", rec: "Every change to the line, and every staff approval with its reason.",
+        how: "Plain code matches each change in the line to a logged staff approval.", bar: "Zero unexplained changes, every day." },
+  G4: { test: "Every kind of day.", rec: "Every page view and every text sent.", how: "Plain code scans them for patient names and a list of medical words.", bar: "Zero hits, every day." },
+  G5: { test: "Every kind of day.", rec: "Every page view.", how: "Plain code checks each one shows “Updated X min ago” and the emergency line.", bar: "Every view, every day." },
+  E1: { test: "Normal days and walk-in rushes (and the held-back days).", rec: "The range each patient saw at check-in, and when they were actually taken to a room.",
+        how: "Plain code checks whether the real wait fell inside the range. A late patient’s clock starts at their appointment time.", bar: "At least 80% of waits inside the range, across 20 patient mixes." },
+  E2: { test: "Normal days (reported only on rush days, where wide is expected).", rec: "The width of every range shown.", how: "Plain code takes the middle (median) width.",
+        bar: "20 minutes or less. Wide is honest; very wide stops being useful." },
+  E3: { test: "Walk-in rushes (and the held-back days).", rec: "The range each walk-in saw, and their real wait.", how: "Plain code counts walk-ins who waited more than 15 minutes past the top of their range.",
+        bar: "5% of walk-ins or fewer." },
+  E4: { test: "Every kind of day; hardest when Kim goes quiet.", rec: "Each minute: what the page showed, how old the desk’s data was, and how many people were really waiting compared with what the desk recorded.",
+        how: "Plain code decides each minute whether the page should have stopped showing a time (data over 15 minutes old, or the desk’s count off by more than 5 people), then compares.",
+        bar: "Right at least 90% of the time, both ways: stopping when it should, and showing a time when it should." },
+  E5: { test: "Luis and Pat on the front desk, who answer “how long?” with their own guesses.", rec: "Each guess, the product’s range at that minute, and the real wait.",
+        how: "Plain code checks which was closer to the real wait: the middle of the product’s range, or the desk’s guess.", bar: "The product closer for at least 70% of walk-ins." },
+  E9: { test: "Mr. Chen arrives well before his appointment.", rec: "His check-in, appointment and roomed times.", how: "Plain code checks his wait is counted from his appointment time, not from when he arrived.", bar: "Exact, every day." },
+  E10: { test: "Every kind of day.", rec: "The raw records of everything that happened.", how: "Plain code recounts every number on the Results screen from those records.", bar: "Every figure matches exactly." },
+  F1: { test: "Every kind of day, and the recorded AI demo.", rec: "Every front-desk entry and patient action.",
+        how: "Plain code compares what each test actor did with the habits its persona describes, for example Kim stepping away 1–2 times for 20–45 minutes.", bar: "Every persona keeps its habits. This grades the test actors, not the product." },
+  E11: { test: "Every kind of day.", rec: "Anonymous post-visit survey answers: “Was the wait estimate accurate?”",
+         how: "Plain code measures how strongly the answers drop as waits run past the top of the range (a correlation from 0 to 1).",
+         bar: "Reported only. Simulated answers come from a formula, so this can’t fail for a real reason. With real patients it becomes pass/fail at 0.5." } };
 const checkName = (id) => GATE_TEXT[id] || GOALS[id]?.t || id;
 
 const URLQ = new URLSearchParams(location.search);
@@ -83,8 +112,9 @@ async function suites() {
 }
 
 // ---------------------------------------------------------------- views
-const VIEWS = ["clinic", "flow", "promises", "results", "actors", "inspect"];
+const VIEWS = ["clinic", "flow", "evals", "results", "actors", "inspect"];
 function showView(v, push = true) {
+  if (v === "promises") v = "evals";   // old link
   if (!VIEWS.includes(v)) v = "clinic";
   ui.view = v;
   VIEWS.forEach((x) => ($("view-" + x).hidden = x !== v));
@@ -95,11 +125,12 @@ function showView(v, push = true) {
   document.querySelectorAll("[data-view]").forEach((a) => a.classList.toggle("on", a.dataset.view === v));
   if (push && location.hash !== "#" + v) history.replaceState(null, "", "#" + v);
   if (v === "flow") renderFlow();
-  if (v === "promises") renderPromises();
+  if (v === "evals") { renderPromises(); renderCaught(); }
   if (v === "actors") loadAgents(true);
   if (v === "inspect" && ui.tab === "suite") loadSuites();
   if (ui.last?.loaded) poll(true);
 }
+document.querySelectorAll("[data-view-link]").forEach((a) => (a.onclick = (e) => { e.preventDefault(); showView(a.dataset.viewLink); window.scrollTo({ top: 0 }); }));
 document.querySelectorAll("[data-view]").forEach((a) => (a.onclick = (e) => { e.preventDefault(); showView(a.dataset.view); window.scrollTo({ top: 0 }); }));
 window.addEventListener("hashchange", () => showView(location.hash.slice(1), false));
 
@@ -358,10 +389,15 @@ function renderMoment(s) {
   $("bts-time").textContent = c.time;
   $("bts-steps").innerHTML = m.steps.map((x, i) => `<span class="tag k-${x.k}">${esc(x.label)}</span>${i < m.steps.length - 1 ? ICON.arrow : ""}`).join("");
   const gl = gateLive(s.scorecard, m.gate);
-  let html = `<div class="check ${gl.cls}">${ICON.shield}<div><div class="eyebrow">Safety promise checked here${ui.showIds ? ` · ${m.gate}` : ""}</div><div class="t">${esc(GATE_TEXT[m.gate])}</div><div class="s">${esc(gl.txt)}</div></div></div>`;
+  let html = `<a href="#evals" class="check ${gl.cls}" data-evcard='${esc(JSON.stringify({ key: m.gate }))}'>${ICON.shield}<div><div class="eyebrow">Safety promise checked here${ui.showIds ? ` · ${m.gate}` : ""}</div><div class="t">${esc(GATE_TEXT[m.gate])}</div><div class="s">${esc(gl.txt)} · How it’s tested →</div></div></a>`;
   const chk = m.goal && suiteGoal(m.goal, c.source.scenario);
-  if (chk) { const g = goalLine(chk); html += `<div class="check ${g.cls}">${ICON.target}<div><div class="eyebrow">${esc(g.head)}</div><div class="t">${esc(g.t)}</div><div class="s">${esc(g.s)}</div></div></div>`; }
+  if (chk) { const g = goalLine(chk); html += `<a href="#evals" class="check ${g.cls}" data-evcard='${esc(JSON.stringify({ match: { id: m.goal, sc: c.source.scenario } }))}'>${ICON.target}<div><div class="eyebrow">${esc(g.head)}</div><div class="t">${esc(g.t)}</div><div class="s">${esc(g.s)} · How it’s tested →</div></div></a>`; }
   $("bts-checks").innerHTML = html;
+  $("bts-checks").querySelectorAll("[data-evcard]").forEach((a) => (a.onclick = (e) => {
+    e.preventDefault(); const req = JSON.parse(a.dataset.evcard);
+    if (req.match) { const c0 = (ui.suites?.[0]?.checks || []).find((x) => x.id === req.match.id && x.scenario === req.match.sc); if (c0) ui.goalSet = c0.group === "hold-out" ? "hold" : "tuning"; }
+    ui.card = { ...req, scroll: true }; showView("evals");
+  }));
 }
 
 // ---------------------------------------------------------------- how it connects
@@ -430,7 +466,7 @@ function renderFlow() {
     <div class="wall">${ICON.lock}<div><strong>A wall between the two.</strong> Simulated people and product agents never share a prompt or an AI call, so the demo is not grading its own homework. The only thing that crosses is what the front desk records.</div></div>
     <section class="lane product" aria-label="The product"><div><div class="lane-title">The product</div><div class="lane-sub">Every step is logged, so every check can be traced to a minute.</div></div>${nodes(["store", "quality", "estimator", "audit", "safety", "urgent", "textagent", "page"])}
       <div class="side"><div class="lane-sub" style="font-weight:700">Side path: anything that would affect other patients</div>${nodes(["exception", "approve", "queue"])}</div></section>
-    <section class="checker" aria-label="Checking">${ICON.shield}<div><div class="t">Checked from the outside</div><div class="small">A separate checker replays 7 kinds of day, 20 times each, and grades the logs against what really happened. It never sees the product’s reasoning, only the record.</div></div><a href="#promises" data-view-link="promises" class="btn small" style="text-decoration:none">See promises and goals</a></section>`;
+    <section class="checker" aria-label="Checking">${ICON.shield}<div><div class="t">Checked from the outside</div><div class="small">A separate checker replays 7 kinds of day, 20 times each, and grades the logs against what really happened. It never sees the product’s reasoning, only the record.</div></div><a href="#evals" data-view-link="evals" class="btn small" style="text-decoration:none">See the evals</a></section>`;
   $("flow-main").querySelectorAll("[data-node]").forEach((b) => (b.onclick = () => { ui.flowSel = b.dataset.node; renderFlow(); }));
   $("flow-main").querySelectorAll("[data-view-link]").forEach((a) => (a.onclick = (e) => { e.preventDefault(); showView(a.dataset.viewLink); }));
   const n = NODES[ui.flowSel];
@@ -442,7 +478,7 @@ function renderFlow() {
 
 // ---------------------------------------------------------------- promises and goals
 function parseSeeds(score) { const m = /(\d+)\/(\d+) seeds/.exec(score || ""); return m ? [+m[1], +m[2]] : null; }
-function fmtVal(v, unit) { return v === null || v === undefined ? "–" : unit === "pct" ? Math.round(v * 100) + "%" : unit === "min" ? Math.round(v) + " min" : String(v); }
+function fmtVal(v, unit) { return v === null || v === undefined ? "–" : unit === "pct" ? Math.round(v * 100) + "%" : unit === "min" ? Math.round(v) + " min" : unit === "r" ? v.toFixed(2) : String(v); }
 async function renderPromises() {
   $("toggle-ids").textContent = ui.showIds ? "Hide test IDs" : "Show test IDs";
   $("toggle-ids").setAttribute("aria-pressed", ui.showIds);
@@ -461,20 +497,27 @@ async function renderPromises() {
   const gatesHtml = `<section class="card" aria-label="Safety promises">
     <div class="row-between"><div style="display:flex;gap:12px;align-items:center"><span style="color:var(--good-ink)">${ICON.shield}</span><div><div class="h2" style="margin:0">Safety promises</div><div class="small muted">One miss on any day fails the whole build</div></div></div>
     <span class="tag wrap ${allOk ? "k-ai" : ""}" style="${allOk ? "" : "background:var(--crit-soft);color:var(--crit-ink)"};font-size:14px;padding:8px 14px">${gates.filter((x) => x.ok).length} of ${gates.length} kept on every day, including held-back days</span></div>
-    <div class="gates">${gates.map((x) => `<div class="gate${x.ok ? "" : " bad"}"><div class="row-between" style="align-items:center"><span class="mark">${x.ok ? ICON.check : ICON.bang}</span>${id(x.g)}</div>
-      <div class="t">${esc(GATE_TEXT[x.g])}</div><div class="s mono">Kept on ${x.kept} of ${x.total} days</div></div>`).join("")}</div></section>`;
+    <div class="gates">${gates.map((x) => `<button type="button" class="gate${x.ok ? "" : " bad"}${ui.card?.key === x.g ? " open" : ""}" data-card="${x.g}" aria-expanded="${ui.card?.key === x.g}"><div class="row-between" style="align-items:center"><span class="mark">${x.ok ? ICON.check : ICON.bang}</span>${id(x.g)}</div>
+      <div class="t">${esc(GATE_TEXT[x.g])}</div><div class="s mono">Kept on ${x.kept} of ${x.total} days</div></button>`).join("")}</div>
+    ${gates.some((x) => ui.card?.key === x.g) ? evalCard(ui.card.key, s.checks.filter((c) => c.id === ui.card.key)) : ""}</section>`;
 
   // One row per goal for the kinds of day that met it (showing the weakest), and its own row for each day that missed.
   const raw = s.checks.filter((c) => GOALS[c.id] && c.group === (ui.goalSet === "tuning" ? "tuning" : "hold-out"));
   const rows = [];
   for (const gid of Object.keys(GOALS)) {
     const mine = raw.filter((c) => c.id === gid);
-    const met = mine.filter((c) => c.passed === true);
-    if (met.length) {
-      const worst = met.reduce((a, b) => (GOALS[gid].dir === "down" ? (b.value > a.value ? b : a) : (b.value < a.value ? b : a)));
-      rows.push({ ...worst, days: met.map((c) => scName(c.scenario)), merged: met.length > 1 });
+    for (const want of [true, null]) {   // days that met it, then report-only days: one row each, showing the weakest
+      const grp = mine.filter((c) => c.passed === want && (want !== null || typeof c.value === "number"));
+      if (!grp.length) continue;
+      const worst = grp.reduce((a, b) => (GOALS[gid].dir === "down" ? (b.value > a.value ? b : a) : (b.value < a.value ? b : a)));
+      rows.push({ ...worst, days: grp.map((c) => scName(c.scenario)), scs: grp.map((c) => c.scenario), merged: grp.length > 1 });
     }
-    mine.filter((c) => c.passed !== true).forEach((c) => rows.push({ ...c, days: [scName(c.scenario)], merged: false }));
+    mine.filter((c) => c.passed === false).forEach((c) => rows.push({ ...c, days: [scName(c.scenario)], scs: [c.scenario], merged: false }));
+  }
+  rows.forEach((r) => (r.key = `${r.id}|${r.scs.join(",")}`));
+  if (ui.card?.match) {   // opened from the clinic view: find the row for that check and kind of day
+    const r = rows.find((x) => x.id === ui.card.match.id && x.scs.includes(ui.card.match.sc));
+    ui.card = r ? { key: r.key, scroll: true } : null;
   }
   const goalRow = (c) => {
     const g = GOALS[c.id];
@@ -488,17 +531,75 @@ async function renderPromises() {
     } else {
       bar = `<div class="bar"><div class="track"><div class="fill${c.passed === false ? " bad" : ""}" style="width:${Math.round((c.value ?? 0) * 100)}%"></div></div><div class="bar-lbl mono"><span>${c.merged ? "every version of each day" : esc(c.score)}</span><span>goal: every day</span></div></div>`;
     }
-    return `<div class="goal"><div class="what"><div class="t">${esc(g.t)}</div><div class="s">${esc(c.days.length > 3 ? `${c.days.length} kinds of day` : c.days.join(", "))}${ui.showIds ? ` · <b>${esc(c.id)}</b>` : ""}</div></div>${bar}
-      <span class="pill ${status[1] === "ok" ? "ok" : status[1] === "bad" ? "bad" : ""}">${status[1] === "ok" ? "✓ " : status[1] === "bad" ? "! " : ""}${status[0]}</span></div>`;
+    const open = ui.card?.key === c.key;
+    return `<button type="button" class="goal${open ? " open" : ""}" data-card="${esc(c.key)}" aria-expanded="${open}"><div class="what"><div class="t">${esc(g.t)}</div><div class="s">${esc(c.days.length > 3 ? `${c.days.length} kinds of day` : c.days.join(", "))}${ui.showIds ? ` · <b>${esc(c.id)}</b>` : ""}</div></div>${bar}
+      <span class="pill ${status[1] === "ok" ? "ok" : status[1] === "bad" ? "bad" : ""}">${status[1] === "ok" ? "✓ " : status[1] === "bad" ? "! " : ""}${status[0]}</span></button>
+      ${open ? evalCard(c.id, s.checks.filter((x) => x.id === c.id && c.scs.includes(x.scenario))) : ""}`;
   };
   const goalsHtml = `<section class="card" aria-label="Accuracy goals" style="display:flex;flex-direction:column;gap:16px">
     <div class="row-between" style="align-items:center"><div style="display:flex;gap:12px;align-items:center">${ICON.target}<div><div class="h2" style="margin:0">Accuracy goals</div><div class="small muted">Scored across ${s.seeds} patient mixes of each kind of day. The line on each bar is the goal.</div></div></div>
       <div class="seg-tabs" role="tablist" aria-label="Which days"><button role="tab" data-gset="tuning" class="${ui.goalSet === "tuning" ? "on" : ""}">Days we tuned on</button><button role="tab" data-gset="hold" class="${ui.goalSet === "hold" ? "on" : ""}">Days held back</button></div></div>
     ${ui.goalSet === "hold" ? `<div class="callout info">${ICON.info}<div>Held-back days are never used to tune the product, so they show how it copes with something new. One of them (understaffed opening) was used for a fix after Milestone 2, so it is no longer a clean test and will be replaced.</div></div>` : ""}
     <div class="goals">${rows.map(goalRow).join("")}</div>
-    <div class="small muted">Not built yet: catching planted bad entries, Spanish replies at a simple reading level, agents’ reasons matching what happened, and survey answers tracking what patients were told. These arrive with the product AI agents in Milestone 5.</div></section>`;
+    <div class="small muted">Not built yet: catching planted bad entries, Spanish replies at a simple reading level, and a logged reason for every AI agent decision. These arrive with the product AI agents.</div></section>`;
   $("promises").innerHTML = gatesHtml + goalsHtml + `<p class="small muted">From test run ${esc(s.suite_id)}. Every failure is written up in FAILURE_LOG.md with its cause and fix, including bugs found in the checks themselves.</p>`;
-  $("promises").querySelectorAll("[data-gset]").forEach((b) => (b.onclick = () => { ui.goalSet = b.dataset.gset; renderPromises(); }));
+  $("promises").querySelectorAll("[data-gset]").forEach((b) => (b.onclick = () => { ui.goalSet = b.dataset.gset; ui.card = null; renderPromises(); }));
+  $("promises").querySelectorAll("[data-card]").forEach((b) => (b.onclick = () => { ui.card = ui.card?.key === b.dataset.card ? null : { key: b.dataset.card }; renderPromises(); }));
+  $("promises").querySelectorAll("[data-open]").forEach((a) => (a.onclick = (e) => { e.preventDefault(); openSaved(s.suite_id, JSON.parse(a.dataset.open)); }));
+  if (ui.card?.scroll) { ui.card.scroll = false; document.querySelector("#promises .evcard")?.scrollIntoView({ block: "center" }); }
+}
+
+// One eval, explained: how it's tested, one real example from the latest test run, and its score over time.
+const shortDate = (id) => { const m = /^(\d{4})(\d{2})(\d{2})/.exec(id || ""); return m ? new Date(+m[1], +m[2] - 1, +m[3]).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : id; };
+// Test-log lines in plain words: 12-hour times, and the common "page showed a time" miss as a sentence.
+function plainEvidence(e) {
+  let m = /^seed (\d+): (.*)$/.exec(e); const mix = m ? `patient mix ${m[1]}: ` : ""; let rest = m ? m[2] : e;
+  const t12 = (hm) => { const [h, mi] = hm.split(":").map(Number); return `${((h + 11) % 12) + 1}:${String(mi).padStart(2, "0")} ${h < 12 ? "AM" : "PM"}`; };
+  m = /^(\d\d:\d\d) showed a range; recorded queue (\d+) vs true (\d+), data (\d+) min old$/.exec(rest);
+  if (m) return `${mix}at ${t12(m[1])} the page showed a wait time while ${m[3]} people were really waiting and the desk had recorded ${m[2]}. The data was only ${m[4]} min old, so it looked fresh.`;
+  return mix + rest.replace(/\b(\d\d:\d\d)\b/g, (x) => t12(x));
+}
+function evalCard(cid, checks) {
+  const info = EVAL_INFO[cid] || {}, g = GOALS[cid];
+  const ex = checks.find((c) => c.passed === false && c.evidence.length) || checks.find((c) => c.evidence.length);
+  let example = `<p>No misses on any of these days.</p>`;
+  if (ex) {
+    const ref = ex.refs[0] || {};
+    const line = plainEvidence(ex.evidence[0]);
+    example = `<p><b>${esc(scName(ex.scenario))}</b>, ${esc(line)}</p>${ex.passed !== false ? `<p class="small muted">The goal allows some misses; this is one of them.</p>` : ""}
+      ${ref.kept ? `<a href="#inspect" class="btn small" data-open='${esc(JSON.stringify({ scenario: ex.scenario, seed: ref.seed, t: ref.t ?? null, pid: ref.pid ?? null }))}'>Open this moment →</a>`
+        : `<p class="small muted">That day’s saved run wasn’t kept, so it can’t be opened.</p>`}`;
+  }
+  // Over time: the same check in each saved test run (gates: days kept across every kind of day).
+  const seenDay = new Set();   // newest run first: keep one per date
+  const hist = (ui.suites || []).filter((su) => { const d = shortDate(su.suite_id); if (seenDay.has(d)) return false; seenDay.add(d); return true; }).map((su) => {
+    const mine = su.checks.filter((c) => c.id === cid && checks.some((x) => x.scenario === c.scenario));
+    if (!mine.length) return null;
+    let v;
+    if (!g) { let k = 0, n = 0; mine.forEach((c) => { const p = parseSeeds(c.score); if (p) { k += p[0]; n += p[1]; } }); v = `${k}/${n} days`; }
+    else if (g.dir === "exact") v = mine.every((c) => c.passed) ? "every day" : "missed";
+    else { const vals = mine.map((c) => c.value).filter((x) => typeof x === "number"); v = vals.length ? fmtVal(g.dir === "down" ? Math.max(...vals) : Math.min(...vals), g.unit) : "–"; }
+    return `<li><span class="muted">${esc(shortDate(su.suite_id))}</span> ${esc(v)}</li>`;
+  }).filter(Boolean).reverse();
+  return `<div class="evcard" role="region" aria-label="How this is tested">
+    <dl class="ev-parts"><dt>The test</dt><dd>${esc(info.test || "")}</dd><dt>What’s recorded</dt><dd>${esc(info.rec || "")}</dd>
+      <dt>How it’s graded</dt><dd>${esc(info.how || "")}</dd><dt>The bar</dt><dd>${esc(info.bar || "")}</dd></dl>
+    <div class="ev-side"><div class="sub-head">A real example</div>${example}
+      ${hist.length > 1 ? `<div class="sub-head" style="margin-top:12px">Over time (oldest first)</div><ul class="ev-hist">${hist.join("")}</ul>` : ""}</div></div>`;
+}
+async function openSaved(suite, r) {
+  ui.selected = null; ui.focusT = null;   // a different run: old patient ids mean other people
+  $("detail").innerHTML = ""; $("detail-title").textContent = "Patient log";
+  await control({ action: "open_saved", suite, scenario: r.scenario, seed: r.seed });
+  showTab("live"); goTo({ t: r.t ?? null, pid: r.pid ?? null });
+}
+let caught = null;
+async function renderCaught() {
+  if (!caught) { try { caught = await (await fetch("caught.json", { cache: "no-store" })).json(); } catch { caught = []; } }
+  $("caught").innerHTML = caught.map((c) => `<article class="caught-item">
+    <div class="row-between" style="align-items:center;gap:8px"><span class="small muted mono">${esc(shortDate(c.date.replace(/-/g, "")))} · ${esc(c.check)}</span>
+      <span class="pill ${c.status === "open" ? "bad" : "ok"}">${c.status === "open" ? "Still open" : "Fixed"}</span></div>
+    <h3>${esc(c.title)}</h3><p>${esc(c.what)}</p><p class="fix"><b>${c.status === "open" ? "Next:" : "Fix:"}</b> ${esc(c.fix.replace(/^Planned: /, ""))}</p></article>`).join("");
 }
 
 // ---------------------------------------------------------------- run inspector
@@ -603,13 +704,7 @@ async function loadSuites() {
   }).join("");
   $("suite").innerHTML = `<p>Test run ${esc(s.suite_id)} · ${s.seeds} patient mixes of each kind of day. Click a failure to open that day’s saved run at that minute.</p>
     <div class="scrollx"><table class="score"><tr><th>Check</th><th>Day</th><th>Score</th><th>Result</th></tr>${rows}</table></div>`;
-  $("suite").querySelectorAll("[data-sref]").forEach((a) => (a.onclick = async () => {
-    const r = window._srefs[+a.dataset.sref];
-    ui.selected = null; ui.focusT = null;   // a different run: old patient ids mean other people
-    $("detail").innerHTML = ""; $("detail-title").textContent = "Patient log";
-    await control({ action: "open_saved", suite: s.suite_id, scenario: r.scenario, seed: r.seed });
-    showTab("live"); goTo({ t: r.t ?? null, pid: r.pid ?? null });
-  }));
+  $("suite").querySelectorAll("[data-sref]").forEach((a) => (a.onclick = () => openSaved(s.suite_id, window._srefs[+a.dataset.sref])));
 }
 
 // ---------------------------------------------------------------- results
