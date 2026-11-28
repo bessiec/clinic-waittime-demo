@@ -18,7 +18,7 @@ from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
 from clinic import config
-from clinic.clock import fmt_12h
+from clinic.clock import fmt_12h, parse
 from clinic.config import ROOT
 from clinic.director import Director
 from clinic.scenarios import SCENARIOS
@@ -160,6 +160,15 @@ class Session:
         if self.director is not None:
             return self.director.done
         return self.store is not None
+
+    def preview(self):
+        """First screen: open the recorded demo paused at a calm minute, so the patient phone shows a
+        real page instead of an empty frame. Skipped when there is no recording."""
+        rec, _ = demo_paths(self.cfg)
+        if not rec.exists():
+            return
+        self.start(None, None, "persona", demo=True)
+        self.step(parse(self.cfg["ui"]["preview_time"]) - parse(self.cfg["clinic"]["open"]))
 
     def step(self, n=1):
         with self.lock:
@@ -393,6 +402,8 @@ class Handler(BaseHTTPRequestHandler):
             return self._send(500, {"error": str(e)})
 
 
-def make_server(cfg, host=None, port=None):
+def make_server(cfg, host=None, port=None, preview=False):
     Handler.session = Session(cfg)
+    if preview:
+        Handler.session.preview()
     return ThreadingHTTPServer((host or cfg["ui"]["host"], cfg["ui"]["port"] if port is None else port), Handler)

@@ -120,9 +120,11 @@ function showView(v, push = true) {
   VIEWS.forEach((x) => ($("view-" + x).hidden = x !== v));
   // On the clinic view the run bar sits under the caption, phone and front desk, so people see the product first.
   const bar = document.querySelector(".runbar");
-  if (v === "clinic") document.querySelector("#view-clinic .stage").after(bar);
+  // The play bar sits on top of the demo on the clinic view, and at the top of every other screen.
+  if (v === "clinic") $("runbar-slot").append(bar);
   else $("view-" + VIEWS[0]).before(bar);
-  bar.classList.toggle("compact", v !== "clinic");   // behind the scenes: one row (clock, play, which day, change day)
+  bar.classList.add("compact");
+  document.body.dataset.view = v;
   document.querySelectorAll("[data-view]").forEach((a) => a.classList.toggle("on", a.dataset.view === v));
   if (push && location.hash !== "#" + v) history.replaceState(null, "", "#" + v);
   if (v === "flow") renderFlow();
@@ -157,11 +159,15 @@ $("replay").onclick = () => { ui.at = null; control({ action: "replay" }); };
 $("demo").onclick = async () => {   // step 1: load the recording and start playing it straight away
   ui.at = null; ui.selected = null; ui.focusT = null;
   showView("clinic");
+  $("demo-sec").scrollIntoView({ block: "start", behavior: "smooth" });
   await control({ action: "start_demo" });
   if (!$("err").textContent) control({ action: "play" });
 };
+// "Try a different day": open the setup panel under the demo and bring it into view.
+function openSetup() { showView("clinic"); $("setup").open = true; $("setup").scrollIntoView({ block: "center", behavior: "smooth" }); }
+$("try-own").onclick = (e) => { e.preventDefault(); openSetup(); };
 $("scenario").onchange = $("approver").onchange = showRunHints;
-$("change-day").onclick = () => { showView("clinic"); document.querySelector(".runbar").scrollIntoView({ block: "start", behavior: "smooth" }); };
+$("change-day").onclick = openSetup;
 // Pick a new patient mix (the run's seed). The number is recorded, so the day still replays exactly.
 $("shuffle").onclick = () => { let n; do { n = Math.floor(Math.random() * 1000); } while (String(n) === $("seed").value); $("seed").value = n; };
 document.querySelectorAll("[data-more]").forEach((l) => (l.onclick = (e) => {
@@ -196,7 +202,7 @@ function renderControl(s) {
   const sc = $("scrub");
   if (c && c.now !== null) { sc.disabled = false; sc.min = c.open_t; sc.max = c.now; sc.value = c.t; } else { sc.disabled = true; }
   $("live").disabled = !c || c.following;
-  if (!c) { setCta("demo"); return; }
+  if (!c) return;
   const src = c.source;
   const srcKey = JSON.stringify(src);
   if (ui.srcKey !== srcKey) {   // keep the pickers in step with what is loaded
@@ -249,6 +255,9 @@ function renderPhone(p) {
       + (page.urgent ? `<p class="urgent">${esc(page.urgent)}</p>` : "")
       + (page.verbatim ? "" : `<p class="err">Display split changed the text</p>`);
   }
+  $("hero-page").className = el.className; $("hero-page").innerHTML = el.innerHTML;
+  const c = ui.last?.control;
+  $("hero-note").textContent = c ? `Live from the simulation: ${scName(c.source.scenario)}, ${c.time}. Change the patient or language in the demo below.` : "";
   $("thread").innerHTML = p.thread.length ? p.thread.map((m) =>
     `<div class="bubble ${m.dir}"><span class="when">${esc(m.time)}</span>${esc(m.text)}</div>`).join("") : `<p class="muted small">${L.none}</p>`;
 }
@@ -381,16 +390,14 @@ function goalLine(chk) {
   return { cls: chk.passed ? "ok" : "bad", head: `Accuracy goal: ${chk.passed ? "met" : "not met yet"}`, t: g.t,
     s: g.dir === "exact" ? `${chk.score} on ${scName(chk.scenario)} days` : `${fmtVal(chk.value, g.unit)} on ${scName(chk.scenario)} days (goal: ${g.dir === "down" ? "at most " : ""}${fmtVal(g.goal, g.unit)})` };
 }
-// The caption carries the next step until the day starts, so it's visible without scrolling to the run bar.
-function setCta(kind) {
-  $("cap-cta").hidden = !kind;
-  if (kind) { $("cap-go").textContent = kind === "play" ? "Play" : "Watch the demo"; $("cap-go").dataset.kind = kind; }
+function teaseEvals() {
+  const su = ui.suites && ui.suites[0]; if (!su) return;
+  let k = 0, n = 0, ok = 0; const g = Object.keys(GATE_TEXT);
+  g.forEach((id) => { const rows = su.checks.filter((c) => c.id === id); if (rows.every((r) => r.passed)) ok++; rows.forEach((r) => { const p = parseSeeds(r.score); if (p && id === "G1") { k += p[0]; n += p[1]; } }); });
+  $("teaser-evals").textContent = `${ok} of ${g.length} safety promises kept on all ${n} simulated days, plus accuracy goals reported honestly, including misses.`;
 }
-$("cap-go").dataset.kind = "demo";
-$("cap-go").onclick = () => ($("cap-go").dataset.kind === "play" ? $("play") : $("demo")).click();
 function renderMoment(s) {
   const m = moment(s), c = s.control;
-  setCta(!s.staff && c.mode === "live" ? "play" : null);
   $("cap-time").textContent = `${c.time}${c.following ? "" : " · looking back"}`;
   $("cap-title").textContent = m.title; $("cap-body").textContent = m.body; $("cap-why").textContent = m.why;
   $("bts-time").textContent = c.time;
@@ -860,6 +867,7 @@ async function poll(now) {
     renderPhone(s.phone);
     renderStaff(s.staff, s.control);
     renderMoment(s);
+    teaseEvals();
     renderScore(s.scorecard, s.control);
     if (ui.view === "inspect") renderTimeline(s.observer);
     renderDecisions(s.observer);

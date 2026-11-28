@@ -418,3 +418,54 @@ a.check:hover { border-color: currentColor; }
 .principle b { font-size: 14.5px; }
 .principle span { color: var(--muted); }
 .principle .link { color: var(--accent); font-weight: 600; margin-top: auto; }
+
+/* clinic view in story order: what it looks like and is → the demo → behind it → what it's for */
+body[data-view="clinic"] .brand-sub { display: none; }   /* the hero says it */
+.hero { display: grid; grid-template-columns: minmax(260px, 340px) minmax(0, 1fr); gap: 24px 48px; align-items: center; padding: 8px 0 4px; }
+@media (max-width: 760px) { .hero { grid-template-columns: 1fr; } .hero-text { order: -1; } }
+.hero-phone { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.phone.mini { height: 440px; width: min(300px, 100%); }
+.hero-text h1 { margin: 6px 0 10px; font-size: clamp(30px, 4.4vw, 48px); line-height: 1.08; font-weight: 800; letter-spacing: -.025em; }
+.hero-text .lede { font-size: clamp(16px, 1.6vw, 19px); max-width: 52ch; margin: 0 0 14px; }
+.ticks { list-style: none; padding: 0; margin: 0 0 20px; display: flex; flex-direction: column; gap: 8px; font-size: 15.5px; }
+.ticks li { padding-left: 28px; position: relative; }
+.ticks li::before { content: "✓"; position: absolute; left: 0; top: 0; width: 20px; height: 20px; border-radius: 50%; background: var(--good-soft); color: var(--good-ink); font-size: 12px; font-weight: 800; display: grid; place-items: center; }
+.hero-cta { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 8px; }
+.btn.big { font-size: 17px; padding: 12px 22px; min-height: 50px; border-radius: 14px; }
+.sec-head { display: flex; gap: 12px; align-items: flex-start; }
+.sec-head h2 { margin: 0; font-size: clamp(20px, 2.2vw, 24px); font-weight: 800; letter-spacing: -.01em; }
+.sec-head p { margin: 2px 0 0; }
+.secnum { flex: none; width: 28px; height: 28px; margin-top: 1px; border-radius: 50%; display: grid; place-items: center; font-weight: 800; font-size: 14px; background: var(--accent-soft); color: var(--accent-soft-ink); border: 1px solid var(--accent-line); }
+.demo-sec { display: flex; flex-direction: column; gap: 14px; padding-top: 12px; border-top: 1px solid var(--line-2); }
+.demo-sec .runbar { margin: 0; }
+.demo-sec .caption { flex: none; flex-direction: row; align-items: flex-start; gap: 16px; padding: 18px 22px; border-radius: 18px; }
+.demo-sec .cap-time { flex: none; padding-top: 3px; }
+.cap-text h3 { margin: 0 0 4px; font-size: clamp(18px, 2vw, 22px); font-weight: 800; letter-spacing: -.01em; }
+.cap-text p { font-size: 15px; }
+@media (max-width: 560px) { .demo-sec .caption { flex-direction: column; gap: 6px; } }
+.demo-sec .stage { justify-content: center; }
+.setup > summary { cursor: pointer; list-style: none; padding: 2px 0; }
+.setup > summary::-webkit-details-marker { display: none; }
+.setup > summary::before { content: "▸ "; color: var(--accent); }
+.setup[open] > summary::before { content: "▾ "; }
+.setup-body { display: flex; flex-direction: column; gap: 12px; margin-top: 12px; }
+.setup .path { background: transparent; border: none; padding: 0; }
+.bts .key { display: flex; flex-wrap: wrap; gap: 6px; }
+.bts .cap-why { margin: 0; background: var(--surface-2); border: none; }
+.bts .cap-why .eyebrow { color: var(--accent); }
+.bts .cap-why p { color: var(--ink); }
+.teasers { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr)); gap: 10px; }
+.teaser { display: flex; flex-direction: column; gap: 4px; padding: 14px 16px; border-radius: 14px; border: 1px solid var(--line-2); text-decoration: none; color: var(--ink); font-size: 13.5px; }
+.teaser b { font-size: 15px; }
+.teaser b::after { content: " →"; color: var(--accent); }
+.teaser span { color: var(--muted); }
+.teaser:hover { border-color: var(--accent-line); }
+.teaser:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.purpose { display: flex; flex-direction: column; gap: 14px; padding-top: 12px; border-top: 1px solid var(--line-2); }
+.purpose-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr)); gap: 12px; }
+.pcard { background: var(--surface); border: 1px solid var(--line-2); border-radius: 16px; padding: 16px 18px; }
+.pcard b { font-size: 15.5px; }
+.pcard p { margin: 6px 0 0; color: var(--muted); font-size: 14px; }
+.purpose .limits h3 { margin: 0 0 6px; font-size: 17px; }
+.purpose .limits h3 { color: var(--dark-ink); } .purpose .limits a { color: var(--dark-accent); }
+.demo-sec .stage { align-items: flex-start; }

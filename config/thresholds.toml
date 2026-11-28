@@ -156,6 +156,7 @@ port = 8000
 # (a 4-hour half-day plays in about 4 minutes). Decided 2026-11-17.
 speed_seconds = { "1x" = 1.0, "10x" = 0.1, "60x" = 0.016667 }
 default_speed = "1x"
+preview_time = "14:10"           # on startup the recorded demo opens paused here, so the first screen shows a real page
 wide_range_minutes = 90         # display only: a walk-in range wider than this shows confidence "Low" on the front desk screen
 score_refresh_seconds = 1.0      # live scorecard regrades at most this often
 

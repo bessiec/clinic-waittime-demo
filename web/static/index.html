@@ -31,54 +31,7 @@
   </nav>
 </header>
 
-<section class="runbar card" aria-label="Run controls">
-  <div class="paths">
-    <div class="path">
-      <span class="stepnum" aria-hidden="true">1</span>
-      <div class="field">
-        <span class="field-label">See how it runs</span>
-        <button id="demo" class="btn primary">Watch the demo</button>
-        <p class="hint">A recorded afternoon where AI plays Kim at the front desk and the patients. Free, no new AI calls.</p>
-      </div>
-    </div>
-    <div class="path path-sim">
-      <span class="stepnum" aria-hidden="true">2</span>
-      <div class="field field-day">
-        <label class="field-label" for="scenario">Kind of day</label>
-        <select id="scenario"></select>
-        <p class="hint"><span id="scenario-desc"></span> <a href="#about-days" class="more" data-more="days">All kinds of day</a></p>
-      </div>
-      <div class="field field-seed">
-        <label class="field-label" for="seed">Patient mix</label>
-        <div class="mix-row"><input id="seed" type="number" min="0" step="1" aria-describedby="mix-hint">
-          <button type="button" id="shuffle" class="btn" title="Pick a new patient mix">Try a different crowd</button></div>
-        <p class="hint" id="mix-hint">Who shows up, when, and how long visits take. Same number, same afternoon. <a href="#about-seed" class="more" data-more="seed">How this works</a></p>
-      </div>
-      <div class="field">
-        <label class="field-label" for="approver">Approvals by</label>
-        <select id="approver">
-          <option value="persona">the front desk</option>
-          <option value="human">me</option>
-        </select>
-        <p class="hint" id="approver-desc"></p>
-      </div>
-      <div class="field">
-        <span class="field-label">Try it yourself</span>
-        <button id="start" class="btn">Run simulation</button>
-        <p class="hint">People follow written rules, computed live. Free.</p>
-      </div>
-    </div>
-  </div>
-  <details class="about" id="about">
-    <summary class="sr-only">About kinds of day and patient mixes</summary>
-    <div class="about-body">
-      <section id="about-days"><h3>Kinds of day</h3><dl id="days-list"></dl></section>
-      <section id="about-seed"><h3>Patient mix</h3>
-        <p>The kind of day sets the situation, like Kim on the desk with a 3 PM rush. The patient mix picks the particular crowd: who walks in and when, and how long each visit takes.</p>
-        <p>The same number always plays out exactly the same afternoon, so a problem can be found again and re-checked after a fix. “Try a different crowd” picks a new number. The tests run 20 patient mixes of every kind of day.</p></section>
-      <button type="button" class="btn small" id="about-close">Close</button>
-    </div>
-  </details>
+<section class="runbar card" aria-label="Playback">
   <div class="runbar-row playbar">
     <div class="runbar-play" role="toolbar" aria-label="Playback">
       <button id="play" class="btn" disabled>Play</button>
@@ -99,15 +52,43 @@
 
 <!-- ============================================================ CLINIC VIEW -->
 <main id="view-clinic" class="view" aria-label="Clinic view">
-  <div class="stage">
+  <!-- 1–2: what it looks like, what it is -->
+  <section class="hero" aria-label="What it is">
+    <div class="hero-phone">
+      <div class="col-head">What a patient sees</div>
+      <div class="phone mini"><div class="screen">
+        <div class="phone-top"><span>Clinic wait times</span><span class="phone-sim">Simulation, synthetic data</span></div>
+        <div class="phone-body"><div id="hero-page" class="page"><p class="muted">Loading…</p></div></div>
+      </div></div>
+      <p class="note" id="hero-note"></p>
+    </div>
+    <div class="hero-text">
+      <div class="eyebrow">A working prototype</div>
+      <h1>Honest wait times for walk-in clinics</h1>
+      <p class="lede">Patients see a range, never a single number. When the front desk falls behind, the page says “please call” instead of guessing.</p>
+      <ul class="ticks">
+        <li>A range, with “updated X min ago” on every view</li>
+        <li>“Please call the clinic” when the data isn’t reliable</li>
+        <li>A person approves anything that moves someone in line</li>
+      </ul>
+      <div class="hero-cta">
+        <button id="demo" class="btn primary big">▶ Watch the demo</button>
+        <a href="#setup" class="btn ghost" id="try-own">Or try your own day ↓</a>
+      </div>
+      <p class="small muted">About 4 minutes: a recorded afternoon where AI plays the front desk and the patients. Free; it replays a recording.</p>
+    </div>
+  </section>
+
+  <!-- 3: the demo -->
+  <section class="demo-sec" id="demo-sec" aria-label="The demo">
+    <div class="sec-head"><span class="secnum">1</span><div><h2>The demo</h2><p class="small muted">Play the afternoon and watch what patients and the front desk see, minute by minute.</p></div></div>
+    <div id="runbar-slot"></div>
     <article class="caption" aria-live="polite">
       <div class="cap-time mono"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg><span id="cap-time">Not started</span></div>
-      <h1 id="cap-title">Pick step 1 or 2 below to start</h1>
-      <p id="cap-body">Start with step 1, “Watch the demo”, to see a recorded afternoon. Then try step 2 to run your own simulation.</p>
-      <div class="cap-cta" id="cap-cta"><button class="btn primary" id="cap-go">Watch the demo</button></div>
-      <div class="cap-why"><div class="eyebrow">Why it matters</div><p id="cap-why">Everything you see is a simulation with synthetic people. The checks behind it are real.</p></div>
+      <div class="cap-text"><h3 id="cap-title">Press “Watch the demo” to start</h3>
+      <p id="cap-body">A recorded afternoon at a small clinic, from opening to close.</p></div>
     </article>
-
+    <div class="stage">
     <section class="phone-col" aria-label="Patient phone">
       <div class="col-head">What the patient sees</div>
       <div class="phone-ctl">
@@ -139,10 +120,11 @@
         <div id="estimate" class="est-wrap"></div>
         <div id="flags"></div>
         <div id="inbox"></div>
-        <div id="decided"></div>
-        <div class="sub-head">In a room</div>
-        <div id="inroom"></div>
-        <details class="line"><summary>See the full line</summary>
+        <details class="line"><summary>Show more: recent decisions, who’s in a room, the full line</summary>
+          <div class="sub-head">Recent decisions</div>
+          <div id="decided"></div>
+          <div class="sub-head">In a room</div>
+          <div id="inroom"></div>
           <div class="cols2">
             <div><div class="sub-head">Scheduled</div><div id="queue"></div></div>
             <div><div class="sub-head">Walk-ins</div><div id="walkins"></div></div>
@@ -151,15 +133,76 @@
         <p class="note">Shows only what the front desk recorded, not what really happened.</p>
       </div>
     </section>
-  </div>
-
-  <section class="card bts" aria-label="Behind the scenes at this moment">
-    <div class="bts-head">
-      <div><div class="h3">Behind the scenes at <span id="bts-time">–</span></div><div class="small muted">Which parts of the system acted, in order</div></div>
-      <div class="key"><span class="tag k-sim">Simulated person (test actor)</span><span class="tag k-ai">Product AI agent</span><span class="tag k-rule">Fixed rule (plain code)</span><span class="tag k-staff">Staff decision</span><span class="tag k-out">What patients see</span></div>
     </div>
+    <details class="setup card" id="setup">
+      <summary><b>Try a different day</b> <span class="small muted">· pick the kind of day and the crowd, and decide approvals yourself</span></summary>
+      <div class="setup-body">
+        <div class="path path-sim">
+      <div class="field field-day">
+        <label class="field-label" for="scenario">Kind of day</label>
+        <select id="scenario"></select>
+        <p class="hint"><span id="scenario-desc"></span> <a href="#about-days" class="more" data-more="days">All kinds of day</a></p>
+      </div>
+      <div class="field field-seed">
+        <label class="field-label" for="seed">Patient mix</label>
+        <div class="mix-row"><input id="seed" type="number" min="0" step="1" aria-describedby="mix-hint">
+          <button type="button" id="shuffle" class="btn" title="Pick a new patient mix">Try a different crowd</button></div>
+        <p class="hint" id="mix-hint">Who shows up, when, and how long visits take. Same number, same afternoon. <a href="#about-seed" class="more" data-more="seed">How this works</a></p>
+      </div>
+      <div class="field">
+        <label class="field-label" for="approver">Approvals by</label>
+        <select id="approver">
+          <option value="persona">the front desk</option>
+          <option value="human">me</option>
+        </select>
+        <p class="hint" id="approver-desc"></p>
+      </div>
+      <div class="field">
+        <span class="field-label">&nbsp;</span>
+        <button id="start" class="btn primary">Run simulation</button>
+        <p class="hint">People follow written rules, computed live. Free.</p>
+      </div>
+        </div>
+  <details class="about" id="about">
+    <summary class="sr-only">About kinds of day and patient mixes</summary>
+    <div class="about-body">
+      <section id="about-days"><h3>Kinds of day</h3><dl id="days-list"></dl></section>
+      <section id="about-seed"><h3>Patient mix</h3>
+        <p>The kind of day sets the situation, like Kim on the desk with a 3 PM rush. The patient mix picks the particular crowd: who walks in and when, and how long each visit takes.</p>
+        <p>The same number always plays out exactly the same afternoon, so a problem can be found again and re-checked after a fix. “Try a different crowd” picks a new number. The tests run 20 patient mixes of every kind of day.</p></section>
+      <button type="button" class="btn small" id="about-close">Close</button>
+    </div>
+  </details>
+      </div>
+    </details>
+  </section>
+
+  <!-- 4: behind the demo -->
+  <section class="card bts" id="bts" aria-label="Behind the demo, right now">
+    <div class="sec-head"><span class="secnum">2</span><div><h2>Behind the demo, at <span id="bts-time">–</span></h2><p class="small muted">Which parts of the system acted just now, in order, and the safety promise checked.</p></div></div>
+    <div class="key"><span class="tag k-sim">Simulated person (test actor)</span><span class="tag k-ai">Product AI agent</span><span class="tag k-rule">Fixed rule (plain code)</span><span class="tag k-staff">Staff decision</span><span class="tag k-out">What patients see</span></div>
     <div class="steps" id="bts-steps"></div>
     <div class="bts-checks" id="bts-checks"></div>
+    <div class="cap-why"><div class="eyebrow">Why it matters</div><p id="cap-why">Everything you see is a simulation with synthetic people. The checks behind it are real.</p></div>
+    <div class="teasers">
+      <a href="#flow" data-view-link="flow" class="teaser"><b>How it connects</b><span>Which parts are AI and which are plain code, and how much each may do on its own.</span></a>
+      <a href="#evals" data-view-link="evals" class="teaser"><b>Evals</b><span id="teaser-evals">Every promise is an automated check, run on 140 simulated days.</span></a>
+      <a href="#results" data-view-link="results" class="teaser"><b>Results</b><span>Accuracy, people who left before being seen, and modeled cost, with and without the product.</span></a>
+    </div>
+  </section>
+
+  <!-- 5: what this is for -->
+  <section class="purpose" aria-label="What this is for">
+    <div class="sec-head"><span class="secnum">3</span><div><h2>What this is for</h2><p class="small muted">A prototype of a product a community clinic could run, tested before any real patient sees it.</p></div></div>
+    <div class="purpose-grid">
+      <div class="pcard"><b>For patients</b><p>Know roughly how long the wait is before coming in or while waiting, by web page or text, in English or Spanish.</p></div>
+      <div class="pcard"><b>For front desk staff</b><p>Built to cut down on “how long?” questions. One tap when a visit runs long; approve or reject suggestions with a one-line reason.</p></div>
+      <div class="pcard"><b>For clinic leaders</b><p>Built to keep people from leaving before they’re seen, at a modeled cost of cents a day, with every number traced to the record.</p></div>
+    </div>
+    <div class="limits">
+      <div><h3>What this demo shows, and what it can’t</h3><p>It shows how the product behaves when the people feeding it are imperfect: staff who fall behind, patients who arrive late or text about something urgent.</p></div>
+      <ul><li>No real clinic, staff member or patient has used it yet.</li><li>Every person and visit is synthetic; costs and staff time are modeled.</li><li>No triage or medical advice anywhere.</li><li><a href="https://github.com/bessiec/clinic-waittime-demo" target="_blank" rel="noopener">Read how it’s built on GitHub</a></li></ul>
+    </div>
   </section>
   <footer class="foot">Simulation, synthetic data. Every person, visit and message here is synthetic. Results show how the product behaves in a simulation, not how it would perform in a real clinic. No triage or medical advice is given anywhere.</footer>
 </main>

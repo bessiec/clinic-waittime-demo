@@ -15,7 +15,7 @@ def main():
         from .selftest import main as selftest
         return selftest(cfg)
     from .server import make_server
-    srv = make_server(cfg, port=args.port)
+    srv = make_server(cfg, port=args.port, preview=True)
     host, port = srv.server_address[:2]
     print(f"Clinic wait-time demo (simulation, synthetic data): http://{host}:{port}  (Ctrl+C to stop)")
     try:
