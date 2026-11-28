@@ -156,8 +156,8 @@ $("play").onclick = () => control({ action: ui.last?.control?.running ? "pause" 
 $("step").onclick = () => { ui.at = null; control({ action: "step" }); };
 $("toend").onclick = () => { ui.at = null; control({ action: "to_end" }); };
 $("replay").onclick = () => { ui.at = null; control({ action: "replay" }); };
-$("demo").onclick = async () => {   // step 1: load the recording and start playing it straight away
-  ui.at = null; ui.selected = null; ui.focusT = null;
+$("demo").onclick = $("demo-bar").onclick = async () => {   // load the recording from opening time and play it straight away
+  ui.at = null; ui.selected = null; ui.focusT = null; ui.demoStarted = true;
   showView("clinic");
   $("demo-sec").scrollIntoView({ block: "start", behavior: "smooth" });
   await control({ action: "start_demo" });
@@ -195,7 +195,9 @@ function renderControl(s) {
   $("clock").textContent = c ? `${c.time}${c.done ? " · day over" : ""}${c.following ? "" : " · looking back"}` : "no run";
   $("play").disabled = !c || c.mode !== "live" || c.done;
   $("play").textContent = c && c.running ? "Pause" : "Play";
-  $("play").classList.toggle("primary", !!c && c.mode === "live" && !c.running && !c.done);   // the next thing to press
+  // One main button at a time: during the demo it's "Watch the demo" / "Start over"; in your own simulation it's Play.
+  $("play").classList.toggle("primary", !!c && c.mode === "live" && !c.running && !c.done && !c.source.demo);
+  $("demo-bar").textContent = c && c.source.demo && ui.demoStarted ? "↺ Start over" : "▶ Watch the demo";
   $("step").disabled = $("toend").disabled = !c || c.mode !== "live" || c.done;
   $("replay").disabled = !c || c.mode !== "live";
   document.querySelectorAll("#speeds button").forEach((b) => b.classList.toggle("on", b.dataset.speed === s.meta.speed));

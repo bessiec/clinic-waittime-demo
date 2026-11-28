@@ -469,3 +469,7 @@ body[data-view="clinic"] .brand-sub { display: none; }   /* the hero says it */
 .purpose .limits h3 { margin: 0 0 6px; font-size: 17px; }
 .purpose .limits h3 { color: var(--dark-ink); } .purpose .limits a { color: var(--dark-accent); }
 .demo-sec .stage { align-items: flex-start; }
+
+/* "Watch the demo" lives in the play bar on the clinic view only */
+#demo-bar { display: none; }
+body[data-view="clinic"] #demo-bar { display: inline-flex; }
