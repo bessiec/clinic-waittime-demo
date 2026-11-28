@@ -243,7 +243,7 @@ class Session:
                 row = fid.get(pid) if in_run else None
                 out.append({"id": pid, "kind": kind, "title": prompt.splitlines()[0].lstrip("# ").strip(), "prompt": prompt,
                             "in_run": in_run, "fidelity": row, "calls": stats, "recent": calls})
-            return {"mode": ("LLM persona agents (recorded, replayed free)" if has_calls else
+            return {"mode": ("AI persona agents (recorded, replayed free)" if has_calls else
                              "scripted rules (no model calls)" if st is not None else "no run loaded"),
                     "llm": has_calls, "model": self.cfg["actors"]["model"],
                     "rules": (PROMPTS / "_rules.md").read_text(), "personas": out}
@@ -254,7 +254,7 @@ class Session:
             meta = {"label": LABEL, "scenarios": {k: v["description"] for k, v in SCENARIOS.items()},
                     "holdouts": [k for k, v in SCENARIOS.items() if v["holdout"]],
                     "speeds": list(self.cfg["ui"]["speed_seconds"]), "speed": self.speed,
-                    "default_seed": self.cfg["run"]["seed"]}
+                    "default_seed": self.cfg["run"]["seed"], "wide_range_minutes": self.cfg["ui"]["wide_range_minutes"]}
             if self.store is None:
                 return {"meta": meta, "loaded": False}
             now = self.now()

@@ -32,7 +32,7 @@ await js(`document.getElementById("scenario").value="normal_day"; document.getEl
 await sleep(1500);
 // Loaded but not started: the panes must render without an error (the error line catches what poll() swallows)
 const startErr = await js(`document.getElementById("err").textContent`);
-check("Start button loads a run, with no error before the day starts", (await js(`document.getElementById("source").textContent`)).includes("Normal day, patient mix 42, approvals by you") && !startErr, startErr || "");
+check("Start button loads a run, with no error before the day starts", (await js(`document.getElementById("source").textContent`)).includes("Normal day (patient mix 42)") && (await js(`document.getElementById("source").textContent`)).includes("you approve changes") && !startErr, startErr || "");
 // Step until a proposal card appears
 let cards = 0;
 for (let i = 0; i < 80 && !cards; i++) {
@@ -75,7 +75,7 @@ const srefs = await js(`document.querySelectorAll("#suite [data-sref]").length`)
 const st = await js(`(() => { const a = document.querySelector("#suite [data-sref]"); if (!a) return null; a.click(); return a.textContent; })()`);
 await sleep(2500);
 const src = await js(`document.getElementById("source").textContent`);
-check("suite tab: a failure opens the saved run", srefs > 0 && src.startsWith("Saved run from suite"), `${st?.slice(0, 50)} -> ${src}`);
+check("suite tab: a failure opens the saved run", srefs > 0 && src.startsWith("Saved test day"), `${st?.slice(0, 50)} -> ${src}`);
 const shotTitle = await js(`document.getElementById("detail-title").textContent`);
 console.log("   after suite click, patient log:", shotTitle);
 const shot = await send("Page.captureScreenshot", { format: "png" });
@@ -85,7 +85,7 @@ await js(`location.hash = "#evals"; true`); await sleep(1500);
 await js(`(() => { const b = [...document.querySelectorAll("#promises .goal")].find((x) => x.querySelector(".pill.bad")); b && b.click(); return true; })()`); await sleep(800);
 const card = await js(`document.querySelector(".evcard")?.innerText || ""`);
 await js(`document.querySelector(".evcard [data-open]")?.click(); true`); await sleep(2500);
-const landed = await js(`ui.view === "inspect" && document.getElementById("source").textContent.startsWith("Saved run from suite")`);
+const landed = await js(`ui.view === "inspect" && document.getElementById("source").textContent.startsWith("Saved test day")`);
 check("Evals: a goal opens its card, and its example opens that moment in the inspector", card.includes("How it’s graded") && landed, card.slice(0, 60).replace(/\n/g, " "));
 check("no JavaScript errors", errors.length === 0, errors.join("; "));
 console.log(`\nbrowser click test: ${results.filter(Boolean).length}/${results.length} pass`);

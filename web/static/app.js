@@ -122,6 +122,7 @@ function showView(v, push = true) {
   const bar = document.querySelector(".runbar");
   if (v === "clinic") document.querySelector("#view-clinic .stage").after(bar);
   else $("view-" + VIEWS[0]).before(bar);
+  bar.classList.toggle("compact", v !== "clinic");   // behind the scenes: one row (clock, play, which day, change day)
   document.querySelectorAll("[data-view]").forEach((a) => a.classList.toggle("on", a.dataset.view === v));
   if (push && location.hash !== "#" + v) history.replaceState(null, "", "#" + v);
   if (v === "flow") renderFlow();
@@ -160,6 +161,7 @@ $("demo").onclick = async () => {   // step 1: load the recording and start play
   if (!$("err").textContent) control({ action: "play" });
 };
 $("scenario").onchange = $("approver").onchange = showRunHints;
+$("change-day").onclick = () => { showView("clinic"); document.querySelector(".runbar").scrollIntoView({ block: "start", behavior: "smooth" }); };
 // Pick a new patient mix (the run's seed). The number is recorded, so the day still replays exactly.
 $("shuffle").onclick = () => { let n; do { n = Math.floor(Math.random() * 1000); } while (String(n) === $("seed").value); $("seed").value = n; };
 document.querySelectorAll("[data-more]").forEach((l) => (l.onclick = (e) => {
@@ -204,10 +206,12 @@ function renderControl(s) {
     showRunHints();
     loadDesk();
   }
+  const desk = ui.desk ? ui.desk.split(",")[0] : "the front desk";
+  const day = `${scName(src.scenario)} (patient mix ${src.seed})`;
   $("source").textContent = c.mode === "review"
-    ? `Saved run from suite ${src.suite}: ${scName(src.scenario)}, patient mix ${src.seed} (read only)`
-    : `${src.demo ? "Demo (AI people, recorded, replayed free): " : "Your simulation (rule-based people): "}${scName(src.scenario)}, patient mix ${src.seed}, approvals by ${src.approver === "human" ? "you" : "desk persona"}${src.replay ? `, replaying ${src.replayed_actions} logged staff action(s)` : ""}`;
-  $("brand-sub").textContent = `A simulated afternoon at a small clinic · ${scName(src.scenario)}${ui.desk ? ` · ${ui.desk.split(",")[0]} on the front desk` : ""}${src.demo ? " · AI people (recorded)" : ""}`;
+    ? `Saved test day: ${day}, from the test run on ${shortDate(src.suite)}. Read only.`
+    : src.demo ? `Now playing: the recorded demo · ${day} · AI plays ${desk} at the front desk and the patients`
+    : `Now playing: your simulation · ${day} · people follow written rules · ${src.approver === "human" ? "you approve changes" : "the front desk approves changes"}${src.replay ? ` · replaying your ${src.replayed_actions} staff action(s)` : ""}`;
 }
 async function loadDesk() {
   try {
@@ -251,11 +255,14 @@ function renderPhone(p) {
 
 // ---------------------------------------------------------------- front desk tablet
 function rng(a) { return a && a[0] !== null ? `${a[0]}–${a[1]} min` : "–"; }
+const FLAG_TXT = { no_update: "no updates lately", stale: "page paused", roomed_before_checkin: "in a room before check-in",
+  checkout_not_roomed: "checked out, never marked in a room", duplicate_checkin: "checked in twice", in_room_long: "in a room a long time", passed_over: "may have been skipped" };
 function confLabel(e, pg) {
   if (pg && pg.status !== "range") return ["Holding", pg.updated_min_ago > 15 ? `data ${pg.updated_min_ago} min old` : "page says call"];
   if (!e) return ["–", ""];
+  if (ui.meta && e.wait[1] - e.wait[0] > ui.meta.wide_range_minutes) return ["Low", "the range is very wide"];
   const c = e.confidence;
-  return [c >= 0.75 ? "High" : c >= 0.4 ? "Medium" : "Low", `${e.samples} recent waits`];
+  return [c >= 0.75 ? "High" : c >= 0.4 ? "Medium" : "Low", `based on ${e.samples} recent waits`];
 }
 function renderStaff(st, c) {
   if (!st) { $("stats").innerHTML = ""; $("estimate").innerHTML = `<p class="muted">Not started.</p>`; return; }
@@ -278,7 +285,7 @@ function renderStaff(st, c) {
     <dt>Patient page</dt><dd>${pageState}${pg ? ` <span class="muted small">· last desk update ${pg.updated_min_ago} min ago</span>` : ""}</dd></dl>`;
 
   $("flags").innerHTML = st.flags.length ? `<div class="sub-head">Data-quality flags</div>` + st.flags.slice(-4).reverse().map((f) =>
-    `<div class="flag">${ICON.warn}<div><b>${esc(f.name || "Clinic")}</b> · ${esc(f.kind.replace(/_/g, " "))}<div>${esc(f.text)}</div></div></div>`).join("")
+    `<div class="flag">${ICON.warn}<div><b>${esc(f.name || "Clinic")}</b> · ${esc(FLAG_TXT[f.kind] || f.kind.replace(/_/g, " "))}<div>${esc(f.text)}</div></div></div>`).join("")
     + (st.flags.length > 4 ? `<p class="small muted">and ${st.flags.length - 4} earlier flag(s)</p>` : "") : "";
 
   // Approval cards: rebuild only when proposals or permissions change, so typed reasons survive polling.
@@ -291,7 +298,7 @@ function renderStaff(st, c) {
         <div class="small">${esc(i.reason)}</div>
         ${c.human_approver && c.can_act ? `<label class="small" style="font-weight:600">Your reason (required, one line)</label><div class="row"><input placeholder="One-line reason" aria-label="Reason">
           <button data-d="approved">Approve</button><button data-d="rejected">Reject</button></div>`
-        : `<div class="small muted">${c.human_approver ? "Go back to now to decide." : "The desk persona decides this one. To decide yourself, set “Approvals by” to “me” in step 2 and run a simulation."}</div>`}
+        : `<div class="small muted">${c.human_approver ? "Go back to now to decide." : "The front desk (simulated) decides this one. To decide yourself, set “Approvals by” to “me” in step 2 and run a simulation."}</div>`}
         <div class="small muted">Suggestions can’t move anyone in line. Only staff can, with a logged reason.</div>
       </div>`).join("");
     $("inbox").querySelectorAll(".proposal button").forEach((b) => (b.onclick = () => {
@@ -393,11 +400,7 @@ function renderMoment(s) {
   const chk = m.goal && suiteGoal(m.goal, c.source.scenario);
   if (chk) { const g = goalLine(chk); html += `<a href="#evals" class="check ${g.cls}" data-evcard='${esc(JSON.stringify({ match: { id: m.goal, sc: c.source.scenario } }))}'>${ICON.target}<div><div class="eyebrow">${esc(g.head)}</div><div class="t">${esc(g.t)}</div><div class="s">${esc(g.s)} · How it’s tested →</div></div></a>`; }
   $("bts-checks").innerHTML = html;
-  $("bts-checks").querySelectorAll("[data-evcard]").forEach((a) => (a.onclick = (e) => {
-    e.preventDefault(); const req = JSON.parse(a.dataset.evcard);
-    if (req.match) { const c0 = (ui.suites?.[0]?.checks || []).find((x) => x.id === req.match.id && x.scenario === req.match.sc); if (c0) ui.goalSet = c0.group === "hold-out" ? "hold" : "tuning"; }
-    ui.card = { ...req, scroll: true }; showView("evals");
-  }));
+  bindEvcards($("bts-checks"));
 }
 
 // ---------------------------------------------------------------- how it connects
@@ -426,9 +429,9 @@ const NODES = {
     job: "Works out a wait range from recent real waits, people ahead, booked visits, who is actually working, and “will run long” taps.",
     autonomy: "Not applicable: deterministic", built: "Plain code, no machine learning",
     evals: "Range covers the real wait 80%+ of the time; ranges stay narrow enough to be useful; rarely too short", today: "Built." },
-  audit: { lane: "product", kind: "ai", soon: true, name: "Audit agent", sub: "widens ranges",
-    job: "Compares posted ranges with what actually happened and widens them when they have been too optimistic.",
-    autonomy: "Can widen ranges by itself. Cannot narrow them.", built: "AI agent plus code", evals: "Its one-line reasons must match what happened",
+  audit: { lane: "product", kind: "ai", soon: true, name: "Audit agent", sub: "suggests wider ranges",
+    job: "Compares posted ranges with what actually happened and, when they have been too optimistic, suggests widening them, with a one-line reason.",
+    autonomy: "Suggests only. Staff must approve.", built: "AI agent plus code", evals: "Nothing changes without a logged approval; every suggestion has a logged reason",
     today: "Not built yet. Arrives in Milestone 5." },
   safety: { lane: "product", kind: "rule", name: "Safety rules", sub: "last stop before patients",
     job: "Holds back any time when data is over 15 minutes old or confidence is low, adds the emergency line and “updated X min ago”, and blocks names and medical words.",
@@ -447,7 +450,7 @@ const NODES = {
     autonomy: "Not applicable", built: "Web page and simulated texts (no real SMS)", evals: "Every view checked against all five safety promises", today: "Built." },
   exception: { lane: "side", kind: "ai", soon: true, name: "Exception agent", sub: "drafts suggestions",
     job: "Drafts suggestions for late arrivals, missed notices and rescheduling, with a one-line reason.",
-    autonomy: "Suggests only. Staff must approve.", built: "AI agent", evals: "Nothing moves without a logged approval; reasons match what happened",
+    autonomy: "Suggests only. Staff must approve.", built: "AI agent", evals: "Nothing moves without a logged approval; every suggestion has a logged reason",
     today: "Not built yet. Today a scripted stand-in drafts the suggestions. The AI version arrives in Milestone 5." },
   approve: { lane: "side", kind: "staff", name: "Staff approves", sub: "with a one-line reason",
     job: "The front desk, or you running the demo, approves or rejects each suggestion and types why.",
@@ -458,6 +461,17 @@ const NODES = {
     autonomy: "Not applicable", built: "Plain code", evals: "Nothing moves without a logged approval", today: "Built." },
 };
 const KIND_LABEL = { sim: "Simulated person (test actor)", ai: "Product AI agent", rule: "Fixed rule (plain code)", staff: "Staff decision", out: "What patients see" };
+const LADDER = [
+  { t: "Never automated", s: "Triage and medical advice. Urgent messages get text written and approved in advance.", ids: ["urgent"] },
+  { t: "Suggests; a person approves", s: "Anything that affects other patients or what everyone is told.", ids: ["exception", "audit"] },
+  { t: "Acts alone, inside the safety rules", s: "Every reply is checked by the safety rules before a patient sees it.", ids: ["textagent"] },
+  { t: "Acts alone, flags only", s: "Can point out problems; can’t change any record.", ids: ["quality"] },
+  { t: "No AI: plain code", s: "The wait estimate and the safety rules, so results are predictable and replayable.", ids: ["estimator", "safety"] }];
+const PRINCIPLES = [
+  { t: "A range, never one number", s: "One number sounds precise and is usually wrong. Patients see a range and when it was last updated.", g: "G5" },
+  { t: "Say “call us” rather than guess", s: "When the front desk’s data is old, the page stops showing a time instead of guessing.", g: "G2" },
+  { t: "A person approves anything that moves someone in line", s: "Software can suggest; staff decide, with a logged reason.", g: "G3" },
+  { t: "Emergencies get fixed text no AI can change", s: "Urgent words always get the same pre-approved reply pointing to emergency care.", g: "G1" }];
 function renderFlow() {
   const nodes = (ids) => `<div class="nodes">${ids.map((id, j) => { const n = NODES[id];
     return `<button type="button" class="node kind-${n.kind}${n.soon ? " soon" : ""}${ui.flowSel === id ? " on" : ""}" data-node="${id}" aria-pressed="${ui.flowSel === id}"><b>${esc(n.name)}</b><span>${esc(n.sub)}</span></button>${j < ids.length - 1 ? ICON.arrow : ""}`; }).join("")}</div>`;
@@ -466,9 +480,16 @@ function renderFlow() {
     <div class="wall">${ICON.lock}<div><strong>A wall between the two.</strong> Simulated people and product agents never share a prompt or an AI call, so the demo is not grading its own homework. The only thing that crosses is what the front desk records.</div></div>
     <section class="lane product" aria-label="The product"><div><div class="lane-title">The product</div><div class="lane-sub">Every step is logged, so every check can be traced to a minute.</div></div>${nodes(["store", "quality", "estimator", "audit", "safety", "urgent", "textagent", "page"])}
       <div class="side"><div class="lane-sub" style="font-weight:700">Side path: anything that would affect other patients</div>${nodes(["exception", "approve", "queue"])}</div></section>
+    <section class="card ladder" aria-label="How much the AI may do on its own"><div class="h3" style="margin:0">How much each part may do on its own</div>
+      <div class="small muted" style="margin:2px 0 10px">Every product AI agent has a fixed level, enforced in code. The more it could affect a patient, the less it does alone.</div>
+      ${LADDER.map((r) => `<div class="rung"><div class="rung-l"><b>${esc(r.t)}</b><span>${esc(r.s)}</span></div><div class="rung-c">${r.ids.map((id) => `<button type="button" class="node kind-${NODES[id].kind}${NODES[id].soon ? " soon" : ""}${ui.flowSel === id ? " on" : ""}" data-node="${id}"><b>${esc(NODES[id].name)}</b><span>${esc(NODES[id].sub)}</span></button>`).join("")}</div></div>`).join("")}</section>
+    <section class="card" aria-label="How we decided"><div class="h3" style="margin:0">How we decided</div>
+      <div class="small muted" style="margin:2px 0 10px">The product choices behind the design. Each one is enforced by a check that runs on every test day.</div>
+      <div class="principles">${PRINCIPLES.map((p) => `<a href="#evals" class="principle" data-evcard='${esc(JSON.stringify({ key: p.g }))}'><b>${esc(p.t)}</b><span>${esc(p.s)}</span><span class="link">How it’s checked →</span></a>`).join("")}</div></section>
     <section class="checker" aria-label="Checking">${ICON.shield}<div><div class="t">Checked from the outside</div><div class="small">A separate checker replays 7 kinds of day, 20 times each, and grades the logs against what really happened. It never sees the product’s reasoning, only the record.</div></div><a href="#evals" data-view-link="evals" class="btn small" style="text-decoration:none">See the evals</a></section>`;
   $("flow-main").querySelectorAll("[data-node]").forEach((b) => (b.onclick = () => { ui.flowSel = b.dataset.node; renderFlow(); }));
   $("flow-main").querySelectorAll("[data-view-link]").forEach((a) => (a.onclick = (e) => { e.preventDefault(); showView(a.dataset.viewLink); }));
+  bindEvcards($("flow-main"));
   const n = NODES[ui.flowSel];
   $("flow-detail").innerHTML = `<span class="tag k-${n.soon ? "soon" : n.kind}" style="align-self:flex-start">${esc(KIND_LABEL[n.kind])}${n.soon ? " · not built yet" : ""}</span>
     <h2>${esc(n.name)}</h2><p style="margin:0">${esc(n.job)}</p>
@@ -542,13 +563,27 @@ async function renderPromises() {
     ${ui.goalSet === "hold" ? `<div class="callout info">${ICON.info}<div>Held-back days are never used to tune the product, so they show how it copes with something new. One of them (understaffed opening) was used for a fix after Milestone 2, so it is no longer a clean test and will be replaced.</div></div>` : ""}
     <div class="goals">${rows.map(goalRow).join("")}</div>
     <div class="small muted">Not built yet: catching planted bad entries, Spanish replies at a simple reading level, and a logged reason for every AI agent decision. These arrive with the product AI agents.</div></section>`;
-  $("promises").innerHTML = gatesHtml + goalsHtml + `<p class="small muted">From test run ${esc(s.suite_id)}. Every failure is written up in FAILURE_LOG.md with its cause and fix, including bugs found in the checks themselves.</p>`;
+  const tuned = s.checks.filter((c) => c.group === "tuning" && GOALS[c.id] && c.passed !== null);
+  const gids = [...new Set(tuned.map((c) => c.id))];
+  const missed = gids.filter((g) => tuned.some((c) => c.id === g && c.passed === false));
+  const headHtml = `<section class="card ev-head" aria-label="Summary">
+    <div><div class="big">${gates.filter((x) => x.ok).length} of ${gates.length}</div><div class="s">safety promises kept on all ${gates[0]?.total ?? 0} days</div></div>
+    <div><div class="big">${gids.length - missed.length} of ${gids.length}</div><div class="s">accuracy goals met on every day we tuned on</div></div>
+    <div><div class="big ${missed.length ? "bad" : ""}">${missed.length} not met yet</div><div class="s">${esc(missed.map((g) => GOALS[g].t).join("; ")) || "none"}. Shown in red below, with what’s planned.</div></div></section>`;
+  $("promises").innerHTML = headHtml + gatesHtml + goalsHtml + `<p class="small muted">From the test run on ${esc(runDate(s.suite_id))}. Every failure is written up in FAILURE_LOG.md with its cause and fix, including bugs found in the checks themselves.</p>`;
   $("promises").querySelectorAll("[data-gset]").forEach((b) => (b.onclick = () => { ui.goalSet = b.dataset.gset; ui.card = null; renderPromises(); }));
   $("promises").querySelectorAll("[data-card]").forEach((b) => (b.onclick = () => { ui.card = ui.card?.key === b.dataset.card ? null : { key: b.dataset.card }; renderPromises(); }));
   $("promises").querySelectorAll("[data-open]").forEach((a) => (a.onclick = (e) => { e.preventDefault(); openSaved(s.suite_id, JSON.parse(a.dataset.open)); }));
   if (ui.card?.scroll) { ui.card.scroll = false; document.querySelector("#promises .evcard")?.scrollIntoView({ block: "center" }); }
 }
 
+function bindEvcards(root) {
+  root.querySelectorAll("[data-evcard]").forEach((a) => (a.onclick = (e) => {
+    e.preventDefault(); const req = JSON.parse(a.dataset.evcard);
+    if (req.match) { const c0 = (ui.suites?.[0]?.checks || []).find((x) => x.id === req.match.id && x.scenario === req.match.sc); if (c0) ui.goalSet = c0.group === "hold-out" ? "hold" : "tuning"; }
+    ui.card = { ...req, scroll: true }; showView("evals"); window.scrollTo({ top: 0 });
+  }));
+}
 // One eval, explained: how it's tested, one real example from the latest test run, and its score over time.
 const shortDate = (id) => { const m = /^(\d{4})(\d{2})(\d{2})/.exec(id || ""); return m ? new Date(+m[1], +m[2] - 1, +m[3]).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : id; };
 // Test-log lines in plain words: 12-hour times, and the common "page showed a time" miss as a sentence.
@@ -737,7 +772,13 @@ async function renderResultsSuite() {
   const W = sc.map((k) => [k, s.finance[k].derived]);
   const bar = (v, color) => `<i style="width:calc(${Math.min(100, v * 100)}% * 0.82);background:${color}"></i>`;
   const costs = W.map(([, d]) => d.cost_per_day_modeled);
-  $("results-suite").innerHTML = `<h2 class="h2">Across every kind of day <span class="small muted" style="font-weight:600">(test run ${esc(s.suite_id)}, ${s.seeds} patient mixes each)</span></h2>
+  const avg = (f) => W.reduce((a, [, d]) => a + (d[f] ?? 0), 0) / W.length;
+  $("results-head").innerHTML = `<section class="card ev-head" aria-label="The short version">
+    <div><div class="big">${pct(avg("coverage"))}</div><div class="s">of waits fell inside the range patients were shown; ${pct(avg("false_reassurance"))} waited 15+ minutes past it</div></div>
+    <div><div class="big">${pct(avg("walkaway_rate"))} <span class="muted" style="font-size:.55em">vs ${pct(avg("baseline_walkaway_rate"))} without</span></div><div class="s">of walk-ins left before being seen. Mostly built into the simulation (see note below), not measured</div></div>
+    <div><div class="big">$${Math.min(...costs).toFixed(2)}–${Math.max(...costs).toFixed(2)}</div><div class="s">running cost per day, modeled (text messages; no AI cost on test days)</div></div>
+    <div class="ev-head-note small muted">Averages across ${W.length} kinds of day, ${s.seeds} patient mixes each, from the test run on ${esc(shortDate(s.suite_id))}.</div></section>`;
+  $("results-suite").innerHTML = `<h2 class="h2">Across every kind of day <span class="small muted" style="font-weight:600">(test run on ${esc(shortDate(s.suite_id))}, ${s.seeds} patient mixes each)</span></h2>
     <div class="results-grid">
     <section class="card"><div><div class="h3" style="margin:0">Walk-ins who left before being seen</div><div class="small muted">Same day, same patients, with and without the product</div></div>
       <div class="legend"><span><i style="background:var(--accent)"></i>With the product</span><span><i style="background:var(--without)"></i>Without</span></div>
@@ -754,13 +795,14 @@ async function renderResultsSuite() {
       <div class="tile" style="background:var(--surface-2);border:none"><div class="k">Running cost per simulated day, modeled</div><div class="v mono" style="font-size:24px">$${Math.min(...costs).toFixed(2)}–${Math.max(...costs).toFixed(2)}</div><div class="s">simulated texts at a modeled rate; the rule-based test days make no AI calls</div></div></section>
     </div>`;
 }
+const runDate = (id) => { const m = /^(\d{4})(\d{2})(\d{2})-(\d{2})(\d{2})/.exec(id || ""); return m ? new Date(+m[1], +m[2] - 1, +m[3], +m[4], +m[5]).toLocaleString("en-US", { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" }) : id; };
 function renderTrend(c) {
   const sc = c.source.scenario;
   const rows = (ui.suites || []).filter((s) => s.finance && s.finance[sc]).slice(0, 8);
   $("trend-note").textContent = `(${scName(sc)}, pooled over each test run’s versions of the day)`;
   $("trend").innerHTML = rows.length ? `<div class="scrollx"><table><tr><th>Test run</th><th class="num">Seen / day</th><th class="num">Range covered</th><th class="num">Waited past range</th><th class="num">Said “call”</th><th class="num">Left unseen with / without</th><th class="num">Satisfied (1–5)</th><th class="num">Cost / day, modeled</th></tr>${rows.map((s) => {
     const d = s.finance[sc].derived;
-    return `<tr><td>${esc(s.suite_id)}</td><td class="num">${d.seen_per_run}</td><td class="num">${pct(d.coverage)}</td><td class="num">${pct(d.false_reassurance)}</td><td class="num">${pct(d.decline_rate)}</td><td class="num">${pct(d.walkaway_rate)} / ${pct(d.baseline_walkaway_rate)}</td><td class="num">${d.survey_satisfied ?? "hidden"}</td><td class="num">$${d.cost_per_day_modeled.toFixed(2)}</td></tr>`; }).join("")}</table></div>`
+    return `<tr><td>${esc(runDate(s.suite_id))}</td><td class="num">${d.seen_per_run}</td><td class="num">${pct(d.coverage)}</td><td class="num">${pct(d.false_reassurance)}</td><td class="num">${pct(d.decline_rate)}</td><td class="num">${pct(d.walkaway_rate)} / ${pct(d.baseline_walkaway_rate)}</td><td class="num">${d.survey_satisfied ?? "hidden"}</td><td class="num">$${d.cost_per_day_modeled.toFixed(2)}</td></tr>`; }).join("")}</table></div>`
     : `<p class="muted small">No saved test run has numbers for this kind of day yet. Run <code>python3 -m evals</code>.</p>`;
 }
 
@@ -782,7 +824,7 @@ async function loadAgents() {
   const card = (p) => `<button class="agent ${ui.agentOpen === p.id ? "open" : ""}" data-agent="${esc(p.id)}">
       <span class="agent-top"><strong>${esc(p.title)}</strong>${pill(p)}</span>
       <span class="small muted">${p.fidelity ? esc(p.fidelity.metric) + (p.fidelity.target ? ` · target ${esc(p.fidelity.target)}` : "") : p.in_run ? "" : "Not on duty in this kind of day."}</span>
-      ${a.llm && p.in_run ? `<span class="small">${p.calls.n} AI call(s), ${p.calls.ok} valid</span>` : ""}</button>`;
+      ${a.llm && p.in_run ? `<span class="small">${p.calls.n} AI decision${p.calls.n === 1 ? "" : "s"}${p.calls.ok === p.calls.n ? (p.calls.n ? ", all usable" : "") : `, ${p.calls.ok} usable`}</span>` : ""}</button>`;
   const open = a.personas.find((p) => p.id === ui.agentOpen);
   const detail = open ? `<section class="card agent-detail">
       <h4>${esc(open.title)} <span class="tag-actor">Simulated person (test actor)</span></h4>

@@ -17,7 +17,7 @@
     <div class="logo" aria-hidden="true"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="8"/><path d="M12 8v4l3 2"/></svg></div>
     <div>
       <div class="brand-name">Clinic Wait Time</div>
-      <div class="brand-sub" id="brand-sub">A simulated afternoon at a small clinic</div>
+      <div class="brand-sub" id="brand-sub">Walk-in patients can’t tell how long they’ll wait. This page gives them an honest range, or says “call us” when it isn’t sure.</div>
     </div>
     <span class="tag k-simdata"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M9 3h6M10 3v6L4 19a2 2 0 0 0 2 3h12a2 2 0 0 0 2-3l-6-10V3"/></svg>Simulation, synthetic data</span>
   </div>
@@ -57,7 +57,7 @@
       <div class="field">
         <label class="field-label" for="approver">Approvals by</label>
         <select id="approver">
-          <option value="persona">desk persona</option>
+          <option value="persona">the front desk</option>
           <option value="human">me</option>
         </select>
         <p class="hint" id="approver-desc"></p>
@@ -86,6 +86,7 @@
       <button id="toend" class="btn" disabled title="Play the rest of the day instantly">To end</button>
       <span class="seg" id="speeds" role="group" aria-label="Speed"></span>
       <span class="clock mono" id="clock">no run</span>
+      <button type="button" id="change-day" class="btn small">Change day</button>
     </div>
     <div class="scrub">
       <input id="scrub" type="range" min="0" max="0" value="0" disabled aria-label="Look back to a minute">
@@ -208,6 +209,7 @@
     <h1>Results in this simulation <span class="tag k-model">Money and staff time are modeled</span></h1>
     <p class="lede">Each day is played twice with the same patients: once with the product, once without. These show how the parts relate in the simulation. They are not a forecast for a real clinic.</p>
   </div>
+  <div id="results-head"></div>
   <h2 class="h2">This day</h2>
   <div id="finance"></div>
   <div id="results-suite"></div>
