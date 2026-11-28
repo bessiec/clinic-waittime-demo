@@ -40,7 +40,7 @@ A separate view for clinic leadership and the buyer that answers whether the pro
 | Operating cost: model and SMS cost per simulated day and per patient | Run logs | Per run |
 | Patient satisfaction | Post-visit survey | Next to estimate accuracy over time |
 
-**Patient satisfaction survey:** 2–3 questions after each visit: "Was the wait estimate accurate?", "How satisfied were you with the wait?", "Would you use this again?" In the demo, patient agents answer based on what they were told vs what actually happened, plus a set rate of noise. Answers are anonymous and shown only in groups of [10] or more.
+**Patient satisfaction survey:** 2–3 questions after each visit: "Was the wait estimate accurate?", "How satisfied were you with the wait?", "Would you use this again?" In the demo, patient agents answer based on what they were told vs what actually happened, plus a set rate of noise. Answers are anonymous and shown only in groups of [10] or more. In a real clinic this is a short text survey after each visit, and E11 becomes a pass/fail check on real answers. In the simulation the answers come from a formula or from AI patients, so E11 is reported, not graded: it can't fail for a real reason.
 
 **Framing:** the dashboard shows relationships, such as whether satisfaction tracks false reassurance more than raw wait length. It does not prove savings; money figures are labeled *modeled*.
 
@@ -90,7 +90,7 @@ Actor agents create the world; product agents and plain code run the product. Th
 | Estimator | Code, no ML | Range from recent actual waits by visit type and time of day + people ahead + booked appointments + actual staffing + "run long" flags | n/a |
 | Guardrail layer | Code | Withhold when data > [15] min old or confidence low; attach urgent-care line; block names and clinical words | n/a |
 | Data-quality agent | LLM | Flag stale or impossible entries (roomed before check-in, no update for an hour) | Acts alone (flags only) |
-| Audit agent | LLM + code | Compare posted ranges to outcomes, recommend widening | Acts alone (adjusts width) |
+| Audit agent | LLM + code | Compare posted ranges to outcomes; propose widening, with a one-line reason | Proposes, staff approves |
 | Patient text agent | LLM | Answer "how long?" from the current estimate, in the patient's language | Acts alone, inside guardrails |
 | Exception agent | LLM | Draft messages for late patients, missed notifications, queue changes, rescheduling | Proposes, staff approves |
 
@@ -123,10 +123,10 @@ Every acceptance test is an eval: a named scenario, run on a fixed seed, scored 
 | E5 | Luis and Pat vs system | System range beats Luis's and Pat's guesses on absolute error | Better in ≥ [70%] of walk-ins | Code |
 | E6 | Planted bad entries | Data-quality agent catches them, few false alarms | ≥ [90%] caught, ≤ [10%] false | Code |
 | E7 | Rosa | Reply in Spanish, readability ≤ grade [6] | 100% language match | Code + LLM judge |
-| E8 | All agent decisions | One-line reason matches what happened | ≥ [90%] | LLM judge, 20% hand-checked |
+| E8 | All agent decisions | Every agent decision and proposal has a logged one-line reason | 100% | Code |
 | E9 | Mr. Chen | Wait clock starts at appointment time | Exact | Code |
 | E10 | All runs | Finance dashboard totals reconcile with observer logs | Exact match | Code |
-| E11 | All runs | Survey answers track what each patient was told vs what happened | Correlation ≥ [0.5]; no group shown under [10] | Code |
+| E11 | All runs | Survey answers track what each patient was told vs what happened | Reported only in the simulation; pass/fail at correlation ≥ [0.5] with real survey answers. No group shown under [10] | Code |
 
 ### Edge cases
 
@@ -144,7 +144,7 @@ Every acceptance test is an eval: a named scenario, run on a fixed seed, scored 
 
 ### How they show up in the demo
 
-- **Scorecard:** the observer dashboard shows each eval as a row with score, threshold and a pass/fail mark, gates on top.
+- **Evals screen:** one screen with the scoreboard (safety promises on top, then accuracy goals); an eval card for each row showing its five parts in plain words, one real example of a miss that opens that moment in the run, and its trend across test runs; and "what the evals caught", drawn from the failure log.
 - **Click-through:** each failure links to the patient timeline and log lines that caused it.
 - **Regression view:** runs are stored, so the dashboard shows this run vs the last one; a change that improves E1 but breaks G2 is visible at once.
 - **Hold-out:** [2] scenarios are never tuned against and are reported separately.
@@ -206,24 +206,22 @@ Build the evals before the agents, so every later milestone is judged by the sam
 
 - **Build:** rebuild the four panes in the approved design: clinic view (patient phone, desk tablet, plain-language caption, "behind the scenes at this moment" strip); Behind the scenes screens for how it connects (clickable agent flow; product AI agents not built yet shown as coming in Milestone 5), promises and goals (gates as safety promises, evals as goal bars, failures visible, test IDs behind a toggle), and results (finance with notes on what is built into the simulation). Labels distinguish "Simulated person (test actor)" from "Product AI agent".
 - **Done when:** same features, same evals, no new product logic: the UI self-test and browser click test pass on the new UI, every screen works at desktop and phone width, and the eval suite reports no score change.
-- **Leaves out:** the guided 10-minute presenting run and the "what the evals caught" panel (Milestone 6).
+- **Leaves out:** the "what the evals caught" panel (Milestone 5).
 - **You see:** the same runs in the new design.
 
-### Milestone 5: AI product agents
+### Milestone 5: AI product agents and finish
 
-**Goal:** add the agents the demo is showing off, each held to its autonomy level.
+Milestones 5 and 6 merged on 2026-11-27 to keep the project small.
 
-- **Build:** data-quality agent (flags only); audit agent (widens ranges); patient text agent (answers in the patient's language, inside guardrails); exception agent (drafts late-arrival, missed-notification and rescheduling messages for staff approval). Actor and product agents never share a prompt or model call.
-- **Done when:** the full suite passes: G1–G5, E1–E11 and edge cases X1–X9; LLM-judge scores are hand-checked on a sample.
-- **Leaves out:** presentation polish.
-- **You see:** agent decisions with one-line reasons in the observer pane and approval cards in the staff console.
+**Goal:** add the agents the demo is showing off, each held to its autonomy level, and make the evals easy to read.
 
-### Milestone 6: Demo polish
-
-**Goal:** a run you can present in under 10 minutes.
-
-- **Build:** scenario picker with named scenarios (normal day, walk-in surge, understaffed opening); speed control; "simulation, synthetic data" labels on every screen; a scripted 10-minute run; a "what the evals caught" panel drawn from the failure log; a limitations note.
-- **Done when:** the scripted run hits each demo moment (surge, front desk goes quiet, chest-pain reply, approval card, scorecard, finance view) and passes all gates on the presenting seed and the hold-outs.
-- **You see:** the finished demo.
+- **Build:**
+  - Data-quality agent (flags only); patient text agent (answers in the patient's language, inside guardrails); exception agent (drafts late-arrival, missed-notification and rescheduling messages for staff approval); audit agent (proposes widening ranges for staff approval). Actor and product agents never share a prompt or model call.
+  - Each agent has a plain-code stand-in used on the full test run (7 kinds of day × 20 seeds). The AI versions run on a smaller AI test run (each kind of day once) through the Claude Code CLI, recorded and replayed free.
+  - Limits enforced in code: the data-quality agent can only add flags; the audit and exception agents only propose; patient text answers pass the guardrail layer or fall back to fixed text, and the text agent never sees urgent messages.
+  - Evals screen (see "How they show up in the demo"), replacing Promises and goals; the run inspector is reached from its examples.
+- **Done when:** G1–G5 pass on the full test run and the AI test run; E1–E7, E9, E10 and edge cases X1–X9 pass on the tuned days (if E5 can't pass, Bessie gets options rather than a lowered bar); E8 holds for every agent decision; E11 is reported; the UI self-test and browser test pass.
+- **Leaves out:** a guided 10-minute tour (the clinic view's caption explains each moment).
+- **You see:** agent decisions with one-line reasons in the run inspector, approval cards for exception and audit proposals in the staff console, and the Evals screen.
 
 **Open questions:** final thresholds in [brackets]; which model runs the actors vs the judges; whether a live human approves in the demo or Dana does; whether staff confirm who showed up at opening as a human checkpoint (supports X9).
