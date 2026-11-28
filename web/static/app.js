@@ -88,6 +88,10 @@ function showView(v, push = true) {
   if (!VIEWS.includes(v)) v = "clinic";
   ui.view = v;
   VIEWS.forEach((x) => ($("view-" + x).hidden = x !== v));
+  // On the clinic view the run bar sits under the caption, phone and front desk, so people see the product first.
+  const bar = document.querySelector(".runbar");
+  if (v === "clinic") document.querySelector("#view-clinic .stage").after(bar);
+  else $("view-" + VIEWS[0]).before(bar);
   document.querySelectorAll("[data-view]").forEach((a) => a.classList.toggle("on", a.dataset.view === v));
   if (push && location.hash !== "#" + v) history.replaceState(null, "", "#" + v);
   if (v === "flow") renderFlow();
@@ -159,7 +163,7 @@ function renderControl(s) {
   const sc = $("scrub");
   if (c && c.now !== null) { sc.disabled = false; sc.min = c.open_t; sc.max = c.now; sc.value = c.t; } else { sc.disabled = true; }
   $("live").disabled = !c || c.following;
-  if (!c) return;
+  if (!c) { setCta("demo"); return; }
   const src = c.source;
   const srcKey = JSON.stringify(src);
   if (ui.srcKey !== srcKey) {   // keep the pickers in step with what is loaded
@@ -339,8 +343,16 @@ function goalLine(chk) {
   return { cls: chk.passed ? "ok" : "bad", head: `Accuracy goal: ${chk.passed ? "met" : "not met yet"}`, t: g.t,
     s: g.dir === "exact" ? `${chk.score} on ${scName(chk.scenario)} days` : `${fmtVal(chk.value, g.unit)} on ${scName(chk.scenario)} days (goal: ${g.dir === "down" ? "at most " : ""}${fmtVal(g.goal, g.unit)})` };
 }
+// The caption carries the next step until the day starts, so it's visible without scrolling to the run bar.
+function setCta(kind) {
+  $("cap-cta").hidden = !kind;
+  if (kind) { $("cap-go").textContent = kind === "play" ? "Play" : "Watch the demo"; $("cap-go").dataset.kind = kind; }
+}
+$("cap-go").dataset.kind = "demo";
+$("cap-go").onclick = () => ($("cap-go").dataset.kind === "play" ? $("play") : $("demo")).click();
 function renderMoment(s) {
   const m = moment(s), c = s.control;
+  setCta(!s.staff && c.mode === "live" ? "play" : null);
   $("cap-time").textContent = `${c.time}${c.following ? "" : " · looking back"}`;
   $("cap-title").textContent = m.title; $("cap-body").textContent = m.body; $("cap-why").textContent = m.why;
   $("bts-time").textContent = c.time;
